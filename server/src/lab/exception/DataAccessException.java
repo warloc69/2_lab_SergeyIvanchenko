@@ -3,7 +3,7 @@ package lab.exception;
 *    Class create exception DataAccessException.
 *    This exception calls, when we can't work with Data Base.
 */
-public class DataAccessException extends Exception {
+public class DataAccessException extends BadTaskException {
     public static final long serialVersionUID = 12331233224l;
     public DataAccessException() {
         super();

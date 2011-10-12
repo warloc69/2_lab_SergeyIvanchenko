@@ -1,4 +1,0 @@
-Manifest-Version: 1.0
-Create-By: Sergey Ivanchenko
-Main-Class: TaskManager
-Class-Path: log\log4j-1.2.16.jar sql\sqlite4java.jar

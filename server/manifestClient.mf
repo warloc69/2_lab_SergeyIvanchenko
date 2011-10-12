@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Create-By: Sergey Ivanchenko
+Main-Class: TaskManagerClient
+Class-Path: log\log4j-1.2.16.jar

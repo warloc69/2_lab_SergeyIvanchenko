@@ -8,11 +8,11 @@ import lab.TaskInfo;
  * class keep information about task.
  */
 public class TaskInfoImpl implements TaskInfo {
-    private long ID;
+    private long ID = 0l;
     private Date taskDate = new Date();
     private File taskDataExec;
-    private String taskInfo;
-    private String taskName;
+    private String taskInfo = " ";
+    private String taskName = " ";
     /**
     * returns task ID.
     */
