@@ -4,10 +4,11 @@ import lab.TaskInfo;
 import javax.swing.table.*;
 import java.util.Collections.*;
 /**
-*    This class creates TableModel.
+*    This class creates TableModel, and keep tasks list.
 */
 public class TableModel extends AbstractTableModel {
     private ArrayList<TaskInfo> info = null; 
+    private ArrayList<TaskInfo> removeInfo = null; 
     public static final long serialVersionUID = 213123123123l;
     public int total = 0;
     public int today = 0;
@@ -19,7 +20,9 @@ public class TableModel extends AbstractTableModel {
     */
     public TableModel(Hashtable<Long,TaskInfo> table) {
         info = new ArrayList<TaskInfo>(table.values());
+        removeInfo = new ArrayList<TaskInfo>(table.values());
         Collections.sort(info);
+        Collections.sort(removeInfo);
         recount();
     }
     /**
@@ -114,19 +117,34 @@ public class TableModel extends AbstractTableModel {
             Collections.sort(info);
             recount();            
         }
+        synchronized (removeInfo) {
+            removeInfo.add(t);
+            Collections.sort(removeInfo);
+        }
         fireTableDataChanged();
     }
     /**
     * edit the task.
+	* SuppressWarnings I used becose use unchecked cast in clone().
     * @param id id for the edits row.
     * @param t reference on the edit task.
     */
+    @SuppressWarnings("unchecked")
     public synchronized void editTask(int id, TaskInfo t) {
         synchronized (info) {
             info.set(id,t);
             Collections.sort(info);
             recount();
-        }        
+        }
+        synchronized (removeInfo) {
+            if (info.size() == removeInfo.size()) {
+                removeInfo.set(id,t);
+            } else {
+                removeInfo.clear();
+                removeInfo = (ArrayList<TaskInfo>) info.clone();
+            }
+            Collections.sort(removeInfo);
+        }
         fireTableDataChanged();
     }
     /**
@@ -188,6 +206,12 @@ public class TableModel extends AbstractTableModel {
             }
             total++;
         }
+    }
+	/**
+	* Return tasks list.
+	*/
+    public ArrayList<TaskInfo> getTableInfo() {
+        return removeInfo;
     }
 
 }

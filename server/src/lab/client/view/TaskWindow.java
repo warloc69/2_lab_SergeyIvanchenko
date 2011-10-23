@@ -15,10 +15,11 @@ import javax.swing.JOptionPane.*;
 public class TaskWindow extends JDialog {
     private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(TaskWindow.class);
     public static final long serialVersionUID = 123322332l;
-	private ManagerView mv = null;
+    private ManagerView mv = null;
     private TaskInfo task = null;
-    private ManagerControllerInterface controller;	
+    private ManagerControllerInterface controller;    
     private boolean start = false;
+    private boolean postfone = false;
     /**
     *    It's private class helps to show only programs
     */
@@ -31,7 +32,7 @@ public class TaskWindow extends JDialog {
                 return "Program";
             }
         }
-	/**
+    /**
     * contructor used for create notification dialog.
     * @param mv reference on the view.
     * @param task reference on the views task.
@@ -39,7 +40,7 @@ public class TaskWindow extends JDialog {
     public TaskWindow(ManagerView mv, TaskInfo task,ManagerControllerInterface cont) {
         super(mv,true);
         this.task = task;
-		this.controller = cont;
+        this.controller = cont;
         this.mv = mv;
         viewMassage(task);
     }
@@ -84,6 +85,8 @@ public class TaskWindow extends JDialog {
         addWindowListener(
             new WindowAdapter() {
                 public void windowClosing(WindowEvent we) {
+                    task.removed(true);
+                    postfone = false;
                     dispose();
                 }
             }
@@ -131,8 +134,11 @@ public class TaskWindow extends JDialog {
                 public void actionPerformed(ActionEvent e) { 
                     Double d = Double.parseDouble((String) list.getSelectedItem())*60;
                     Long l = d.longValue();
-                   
-                    dateChooser.setValue(new Date(task.getDate().getTime()+l*1000*60));
+                    if (task.getDate().getTime() > new Date().getTime()) {
+                        dateChooser.setValue(new Date(task.getDate().getTime()+l*1000*60));
+                    }  else { 
+                        dateChooser.setValue(new Date(new Date().getTime() + l*1000*60));
+                    }
                 }
             }
         );
@@ -221,6 +227,8 @@ public class TaskWindow extends JDialog {
                 }
                 if (command == ViewVariable.comEdit) {
                     try {
+                        task.removed(false);
+                        postfone = false;
                         controller.editTask(ts.getID(),ts);
                     } catch (DataAccessException e) {
                         log.error(e);
@@ -256,6 +264,8 @@ public class TaskWindow extends JDialog {
             cancel.addActionListener(
             new ActionListener() {
                 public void actionPerformed(ActionEvent event) {
+                    task.removed(true);
+                    postfone = false;
                     dispose();
                 }            
             });
@@ -280,7 +290,7 @@ public class TaskWindow extends JDialog {
         add(allBoxes);
         setVisible(true);
     }
-	 /**
+     /**
     * Show execute dialog.
     * @param task reference on the views task.
     */
@@ -289,7 +299,7 @@ public class TaskWindow extends JDialog {
         Box boxInfo = Box.createHorizontalBox();
         Box boxFile = Box.createHorizontalBox();
         Box boxButton = Box.createHorizontalBox();
-        Box allBoxes = Box.createVerticalBox();
+        final Box allBoxes = Box.createVerticalBox();
         start = false;
         int W = Toolkit.getDefaultToolkit().getScreenSize().width;
         int H = Toolkit.getDefaultToolkit().getScreenSize().height-50;
@@ -298,11 +308,12 @@ public class TaskWindow extends JDialog {
         addWindowListener(
             new WindowAdapter() {
                 public void windowClosing(WindowEvent we) {
-				 try {
+                 try {
                     controller.delTask(ts.getID());
-				} catch (DataAccessException e) {
-					log.error(e);
-				}
+                    ts.removed(true);
+                } catch (DataAccessException e) {
+                    log.error(e);
+                }
                     dispose();
                 }
             }
@@ -335,20 +346,23 @@ public class TaskWindow extends JDialog {
             public void actionPerformed(ActionEvent event) {
                     if (!start) {
                         if (ts.getExec() != null && !ts.getExec().getName().equals(" ")){
-                            Runtime r = Runtime.getRuntime();
-                            try {
-                                r.exec(ts.getExec().getPath());
-                                start = true;
-                            } catch (IOException e) {
-                                log.error("Runtime error");
+                            if(ts.getExec().getPath().length() > 3) {
+                                Runtime r = Runtime.getRuntime();
+                                try {
+                                    r.exec(ts.getExec().getPath());
+                                    start = true;
+                                } catch (IOException e) {
+                                    log.error("Runtime error");
+                                }
                             }
                         }
                     }
-					try {
-						controller.delTask(ts.getID());
-					} catch (DataAccessException e) {
-						log.error(e);
-					}
+                    try {
+                        controller.delTask(ts.getID());
+                        ts.removed(true);
+                    } catch (DataAccessException e) {
+                        log.error(e);
+                    }
                 dispose();                
             }
         });
@@ -362,8 +376,11 @@ public class TaskWindow extends JDialog {
             cancel.addActionListener(
             new ActionListener() {
                 public void actionPerformed(ActionEvent event) {
-                  new TaskWindow(ViewVariable.comEdit,TaskWindow.this.mv,controller,ts);
-                  dispose();
+                  setVisible(false);
+                  remove(allBoxes);
+                  ts.removed(true);
+                  postfone = true;
+                  viewAddTask(ViewVariable.comEdit);
                 }            
             });
         boxButton.add(cancel);
@@ -387,5 +404,10 @@ public class TaskWindow extends JDialog {
         add(allBoxes);
         setVisible(true);
     }
-    
+	/**
+	* show postfoned or not the task
+	*/
+    public boolean isPostfone() {
+        return postfone;
+    }    
 }

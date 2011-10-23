@@ -9,12 +9,13 @@ import lab.exception.*;
 import java.util.*;
 import lab.*;
 import java.text.*;
+/**
+* Class create new gui appender for the log4j.
+*/
 public class ServerGUI extends AppenderSkeleton {	
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(ServerGUI.class);
-    JTextArea tname = null;
-    GUI gui = null;
-    public ServerGUI () {
-    }
+    private JTextArea tname = null;
+    private GUI gui = null;
     private class GUI extends JFrame{	
         public static final long serialVersionUID = 123312452l;		
 		private Connector con = null;
@@ -23,6 +24,9 @@ public class ServerGUI extends AppenderSkeleton {
 			setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             showGUI();
         }
+		/**
+		* show server gui
+		*/
         public void showGUI () {
 			try {
 				Container cGui = getContentPane();
@@ -40,12 +44,11 @@ public class ServerGUI extends AppenderSkeleton {
 				final JFormattedTextField port = new JFormattedTextField(formP);
 				port.setMaximumSize(new Dimension(50,30));
 				JLabel lPort = new JLabel("Port:");
-				port.setValue(Connector.port.toString());
+				port.setValue("8189");
 				startServer.addActionListener(
 					new ActionListener() {
 						public void actionPerformed(ActionEvent ae) {
-							Connector.port = Integer.parseInt(((String)port.getValue()));
-							con  = new Connector();
+							con  = new Connector(Integer.parseInt(((String)port.getValue())));
 							stopServer.setEnabled(true);
 							startServer.setEnabled(false);
 						}
@@ -57,13 +60,12 @@ public class ServerGUI extends AppenderSkeleton {
 						public void actionPerformed(ActionEvent ae) {
 							stopServer.setEnabled(false);
 							startServer.setEnabled(true);
-							String s = JOptionPane.showInputDialog(GUI.this,"server kill","kill",JOptionPane.QUESTION_MESSAGE);
-							Collection<UserConnector> col = Connector.userlist.values();
-							for	(UserConnector uc : col) {
-								uc.getOutStream().println(
-									XMLUtil.packager("disconnect",0,"good|by","Server stoped. " + s,new TaskInfoImpl(),null));
+							String s = " ";
+							 s += JOptionPane.showInputDialog(GUI.this,"server kill","kill",JOptionPane.QUESTION_MESSAGE);
+							con.stop(s);
+							if (log.isInfoEnabled()) {
+								log.info(s);
 							}
-							log.info(s);
 							con = null;
 							System.exit(0);
 						}
@@ -76,21 +78,23 @@ public class ServerGUI extends AppenderSkeleton {
 				allBoxes.add(boxButton);
 				setVisible(true);
 			} catch (ParseException e) {
-			log.warn(e);
+				log.warn(e);
 			}
         }
     }
+	/**
+	* get message from the logger and send message to the gui.
+	*/
     @Override
     protected void append(org.apache.log4j.spi.LoggingEvent event) {
         if (gui == null) {
             gui = new GUI();
         }
-		try {
-			tname.setText(tname.getText()+"\n"+event.getMessage().toString());
-		} catch (NullPointerException e) {
-			log.error("apender error "+ e);
-		}
+		tname.setText(tname.getText()+"\n"+event.getMessage().toString());
     }
+	/**
+	* close appender.
+	*/
     @Override
     public void close() {
     }

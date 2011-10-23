@@ -13,6 +13,7 @@ public class TaskInfoImpl implements TaskInfo {
     private File taskDataExec;
     private String taskInfo = " ";
     private String taskName = " ";
+	private boolean removed = false;
     /**
     * returns task ID.
     */
@@ -86,4 +87,16 @@ public class TaskInfoImpl implements TaskInfo {
             return 1;
         }
     }
+	/**
+	* Show removed task or not.
+	*/
+	public boolean isRemoved() {
+		return removed;
+	}
+	/**
+	* Set removed jeck
+	*/
+	public void removed(boolean remov) {
+		removed = remov;
+	}
 }//end TaskInfo

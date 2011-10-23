@@ -26,10 +26,4 @@ public interface ManagerControllerInterface {
     * @param task reference on the edit task.
     */
     public void editTask(long id, TaskInfo task) throws DataAccessException, BadTaskException ;
-    /**
-    * insert model into controller.
-    * @param model reference of the model.
-    */
-    public void setOutStream(PrintWriter out);
-
 }

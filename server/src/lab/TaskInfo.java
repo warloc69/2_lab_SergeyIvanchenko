@@ -46,4 +46,12 @@ public interface TaskInfo extends Comparable<TaskInfo>{
     * Sets task ID.
     */
     public void setID(long id) ;
+	/**
+	* Show removed task or not.
+	*/
+	public boolean isRemoved() ;
+	/**
+	* Set removed jeck
+	*/
+	public void removed(boolean remov);
 }//end TaskInfo

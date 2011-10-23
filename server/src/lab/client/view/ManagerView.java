@@ -19,7 +19,7 @@ import lab.client.*;
 public class ManagerView extends JFrame {
     private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(ManagerView.class);
     private Container pane = null;
-	private ManagerControllerInterface controller = new ManagerController();;
+    private ManagerControllerInterface controller = null;
     private int loadFirstView = 0;
     private TableModel tableModel;  
     private JTable table = new JTable();
@@ -32,10 +32,15 @@ public class ManagerView extends JFrame {
     private JLabel today = null;
     private JLabel tomorrow = null;
     private JLabel week = null;
-	private ServerConnector sc = null;
+    private ServerConnector sc = null;
+    private Notifier nf = null;
+    private boolean getAll = false;
+	private JButton bConnect = null;
     public static final long serialVersionUID = 123312332l;
     private class Notifier implements Runnable {
         private Thread thread = null;
+        private boolean run =true;
+        public boolean notify = true;
         public Notifier() {
             thread = new Thread(this);
             thread.setDaemon(true);
@@ -46,18 +51,34 @@ public class ManagerView extends JFrame {
         *     and chooses the task for execution. 
         */
         public void run() {
-            while (true) {    
-                try {
-                    thread.sleep(1000);
-                } catch (InterruptedException e) {}
-                if ((tableModel != null) && (tableModel.getRowCount() != 0)) {
-                    if (tableModel.get(0) != null) {                   
-                        if (tableModel.get(0).getDate().getTime() <= (new Date().getTime()+ViewVariable.offTime*1000*60)) {
-                            new TaskWindow(ManagerView.this,tableModel.get(0),controller);
+            while (run) {
+                ArrayList<TaskInfo> info = tableModel.getTableInfo();    
+                synchronized (info) {            
+                    try {
+                        for (TaskInfo ts : info) {
+                            if (ts.isRemoved()) {
+                                info.remove(ts);
+                                continue;
+                            }
+                            if (ts.getDate().getTime() <= (new Date().getTime()+ViewVariable.offTime*1000*60) ) {
+                                TaskWindow tw = new TaskWindow(ManagerView.this,ts,controller);
+                                while (tw.isPostfone()) {
+                                    Thread.yield();
+                                }
+                                info.remove(ts);
+                            } else {
+                                break;
+                            }
                         }
+                    } catch (ConcurrentModificationException e) {
+                        info = tableModel.getTableInfo();
                     }
                 }
+                Thread.yield();
             }
+        }
+        public void stop () {
+            run = false;
         }
     }
     /**
@@ -83,7 +104,6 @@ public class ManagerView extends JFrame {
                 }
             }
         );    
-        new Notifier();        
     }
     /**
     *    Load all swing element.
@@ -117,24 +137,36 @@ public class ManagerView extends JFrame {
             JScrollPane scr = new JScrollPane(table);
             Box b = Box.createVerticalBox();
             menuConection.setMaximumSize(new Dimension(130,30));
-            JButton bConnect = new JButton( new ImageIcon("img\\connect.png"));
+            bConnect = new JButton( new ImageIcon("img\\connect.png"));
+			final JButton bDisconnect = new JButton( new ImageIcon("img\\disconnect.png"));
+			bDisconnect.setEnabled(false);
             bConnect.addActionListener( 
                 new ActionListener() {
                     public void actionPerformed(ActionEvent ae) {
-                        if (sc == null) {
-                            sc = new ServerConnector(ManagerView.this);	
-                            sc.startCommander();
-							menuCom.setEnabled(true);
+                       ConnectWindow con = new ConnectWindow(ManagerView.this);
+                       if (con.isConnected()) {
+                           try { 
+                               if (sc == null) {                                      
+                                    sc = new ServerConnector(ManagerView.this);                                
+                                    controller = sc.startCommander(ViewVariable.hash);
+                                    menuCom.setEnabled(true);
+									bConnect.setEnabled(false);
+									bDisconnect.setEnabled(true);
+                                }
+                            } catch (lab.exception.ConnectException e) {
+                                sc = null;
+                                JOptionPane.showMessageDialog(ManagerView.this,"Server error","ERROR",JOptionPane.ERROR_MESSAGE);
+                            }
                         }
                     }
                 }
             );
             bConnect.setToolTipText("Connection to the server");
             menuConection.add(bConnect);
-            JButton bDisconnect = new JButton( new ImageIcon("img\\disconnect.png"));
             bDisconnect.addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent ev ) {
-                    notifyError();
+                    notifyDisconnect();
+					bDisconnect.setEnabled(false);
                 }
             });
             bDisconnect.setToolTipText("Disconnect from the server");
@@ -182,7 +214,7 @@ public class ManagerView extends JFrame {
                         if (i.length == 0) {return;}
                         long id = tableModel.getID(i[0]);
                         try {
-							controller.delTask(id);
+                            controller.delTask(id);
                         } catch (Exception e) {
                             log.error(e);
                             JOptionPane.showMessageDialog(ManagerView.this, e.getMessage(),"Error",JOptionPane.ERROR_MESSAGE);                    
@@ -290,101 +322,135 @@ public class ManagerView extends JFrame {
     */
     private void optionProgram() {
         try{
-		final JDialog optionD = new JDialog(this,true);
-        optionD.setTitle("Option");
-        optionD.setSize(255, 125);
-        Box b = Box.createVerticalBox();
-		Box bIP = Box.createHorizontalBox();
-        Box b1 = Box.createHorizontalBox();
-        Box b2 = Box.createHorizontalBox();
-        optionD.add(b);
-        final JCheckBox check = new JCheckBox("Autorun program");
-		
-			MaskFormatter form = new MaskFormatter("###.###.###.###");
-			MaskFormatter formP = new MaskFormatter("####");
-			JLabel lIP = new JLabel("IP");
-			JLabel lPort = new JLabel("Port:");
-			form.setPlaceholderCharacter('0');
-			final JFormattedTextField ip = new JFormattedTextField(form);
-			final JFormattedTextField port = new JFormattedTextField(formP);
-			ip.setMaximumSize(new Dimension(100,30));
-			ip.setValue(ViewVariable.ip);
-			port.setValue(ViewVariable.port.toString());
-			bIP.add(lIP);
-			bIP.add(ip);
-			bIP.add(lPort);
-			bIP.add(port);
-			b.add(bIP);
-		
-        check.setSelected(ViewVariable.autoRun);
-        check.setToolTipText("Set, if you want to run executable program automaticly in the task.");        
-        JLabel l = new JLabel("Put off time:");
-        JLabel m = new JLabel("Minits");
-        final JTextField min = new JTextField();
-        min.setText(ViewVariable.offTime+"");
-        final JComboBox list = new JComboBox();
-        list.addItem("0.5");
-        list.addItem("1");
-        list.addItem("2");
-        list.addItem("5");
-        list.addItem("6");
-        list.addItem("10");
-        list.addItem("12");
-        list.addItem("15");
-        list.addItem("24");
-        JLabel h = new JLabel("H");
-        list.addActionListener(
-            new ActionListener() {
-                public void actionPerformed(ActionEvent e) { 
-                    Double d = Double.parseDouble((String) list.getSelectedItem())*60.;
-                    Integer i = d.intValue();
-                    min.setText(i.toString());
-                }
-            }
-        );
-        JButton bOk = new JButton("Ok");
-        bOk.addActionListener(
-            new ActionListener() {
-                public void actionPerformed(ActionEvent e) {                
-                        ViewVariable.autoRun = check.isSelected();
-                        ViewVariable.H = getSize().height;
-                        ViewVariable.W = getSize().width;
-						ViewVariable.ip = (String)ip.getValue();
-						ViewVariable.port = Integer.parseInt((String)port.getValue());
-                    try {
-                        ViewVariable.offTime = Integer.parseInt(min.getText());
-                    } catch (NumberFormatException e3) {
-                        return;
-                    }
-                    optionD.dispose();
-                }
-            }
-        );
-        JButton bCancel = new JButton("Cancel");
-        bCancel.addActionListener(
-            new ActionListener() {
-                public void actionPerformed(ActionEvent e) {
-                    optionD.dispose();
-                }
-            }
-        );
-        b1.add(l);
-        b1.add(Box.createGlue());
-        b1.add(min);
-        b1.add(m);
-        b1.add(list);
-        b1.add(h);
-        b.add(b1);
-        b.add(check);
-        b.add(b2);        
-        b2.add(bOk);
-        b2.add(Box.createGlue());
-        b2.add(bCancel);
-        optionD.setResizable(false);        
-        optionD.setVisible(true);
-		} catch (ParseException e) {
+			final JDialog optionD = new JDialog(this,true);
+			optionD.setTitle("Option");
+			optionD.setSize(255, 125);
+			Box b = Box.createVerticalBox();
+			Box bIP = Box.createHorizontalBox();
+			Box b1 = Box.createHorizontalBox();
+			Box b2 = Box.createHorizontalBox();
+			optionD.add(b);
+			final JCheckBox check = new JCheckBox("Autorun program");
+			
+				MaskFormatter form = new MaskFormatter("###.###.###.###");
+				MaskFormatter formP = new MaskFormatter("####");
+				JLabel lIP = new JLabel("IP");
+				JLabel lPort = new JLabel("Port:");
+				form.setPlaceholderCharacter('0');
+				final JFormattedTextField ip = new JFormattedTextField(form);
+				final JFormattedTextField port = new JFormattedTextField(formP);
+				ip.setMaximumSize(new Dimension(100,30));
+				ip.setMinimumSize(new Dimension(100,30));
+				ip.setValue(ViewVariable.ip);
+				port.setValue(ViewVariable.port.toString());
+				bIP.add(lIP);
+				bIP.add(ip);
+				bIP.add(lPort);
+				bIP.add(port);
+				b.add(bIP);
+			
+			check.setSelected(ViewVariable.autoRun);
+			check.setToolTipText("Set, if you want to run executable program automaticly in the task.");        
+			JLabel l = new JLabel("Put off time:");
+			JLabel m = new JLabel("Minits");
+			final JTextField min = new JTextField();
+			min.setText(ViewVariable.offTime+"");
+			final JComboBox list = new JComboBox();
+			list.addItem("0.5");
+			list.addItem("1");
+			list.addItem("2");
+			list.addItem("5");
+			list.addItem("6");
+			list.addItem("10");
+			list.addItem("12");
+			list.addItem("15");
+			list.addItem("24");
+			JLabel h = new JLabel("H");
+			list.addActionListener(
+				new ActionListener() {
+					public void actionPerformed(ActionEvent e) { 
+						Double d = Double.parseDouble((String) list.getSelectedItem())*60.;
+						Integer i = d.intValue();
+						min.setText(i.toString());
+					}
+				}
+			);
+			JButton bOk = new JButton("Ok");
+			bOk.addActionListener(
+				new ActionListener() {
+					public void actionPerformed(ActionEvent e) {                
+							ViewVariable.autoRun = check.isSelected();
+							ViewVariable.H = getSize().height;
+							ViewVariable.W = getSize().width;
+							try {
+								ViewVariable.ip = ipValidator((String)ip.getValue());
+							} catch (BadIPException e4) {
+								JOptionPane.showMessageDialog(ManagerView.this,"IP wrong","ERROR",JOptionPane.ERROR_MESSAGE);
+								return;
+							}
+							ViewVariable.port = Integer.parseInt((String)port.getValue());
+						try {
+							ViewVariable.offTime = Integer.parseInt(min.getText());
+						} catch (NumberFormatException e3) {
+							return;
+						}
+						optionD.dispose();
+					}
+				}
+			);
+			JButton bCancel = new JButton("Cancel");
+			bCancel.addActionListener(
+				new ActionListener() {
+					public void actionPerformed(ActionEvent e) {
+						optionD.dispose();
+					}
+				}
+			);
+			b1.add(l);
+			b1.add(Box.createGlue());
+			b1.add(min);
+			b1.add(m);
+			b1.add(list);
+			b1.add(h);
+			b.add(b1);
+			b.add(check);
+			b.add(b2);        
+			b2.add(bOk);
+			b2.add(Box.createGlue());
+			b2.add(bCancel);
+			optionD.setResizable(false);        
+			optionD.setVisible(true);
+        } catch (ParseException e) {
 			log.warn(e);
-		}
+        }
+    }
+	/**
+	* Valids ip.
+	* @param ips ip addres.
+	* @return change ip.
+	* @throws BadIPException if ip is wrong.
+	*/
+    private String ipValidator(String ips) throws BadIPException {
+        String zero = "0";
+        StringTokenizer st = new StringTokenizer(ips,".");
+        String ip = "";
+        while (st.hasMoreTokens()) {
+            String s = st.nextToken();
+                Integer i = Integer.parseInt(s);
+            if ((i > 255) || (i < 0)) {
+                throw new BadIPException();
+            }            
+            String ipPart = i.toString();
+            while (ipPart.length() < 3) {
+                ipPart = zero + ipPart;
+            }    
+            if (ip.length() == 0) {
+                ip = ipPart;
+            } else {
+                ip = ip + "." + ipPart;
+            }
+        }        
+        return ip;
     }
     /**
     * Loads option from the file.
@@ -393,6 +459,11 @@ public class ManagerView extends JFrame {
         try {
             File f = new File("option\\option.opt");
             if(!f.exists()) {
+                try {
+                    ViewVariable.ip = ipValidator(ViewVariable.ip);
+                } catch (BadIPException e) {
+                    JOptionPane.showMessageDialog(ManagerView.this,"IP wrong","ERROR",JOptionPane.ERROR_MESSAGE);
+                }
                 return;
             }
             DataInputStream in = 
@@ -402,9 +473,14 @@ public class ManagerView extends JFrame {
             ViewVariable.autoRun = in.readBoolean();
             ViewVariable.H = in.readInt();
             ViewVariable.W = in.readInt();
-			ViewVariable.ip = in.readUTF();
-			ViewVariable.port = in.readInt();
-			ViewVariable.hash = in.readUTF();
+            ViewVariable.ip = in.readUTF();
+            try {
+                ViewVariable.ip = ipValidator(ViewVariable.ip);
+            } catch (BadIPException e) {
+                JOptionPane.showMessageDialog(ManagerView.this,"IP wrong","ERROR",JOptionPane.ERROR_MESSAGE);
+            }
+            ViewVariable.port = in.readInt();
+            ViewVariable.hash = in.readUTF();
         } catch (IOException e) {
             log.error("IO Exception, read option");
         }
@@ -427,19 +503,19 @@ public class ManagerView extends JFrame {
             out.flush();
             out.writeInt(getSize().width);
             out.flush();
-			out.writeUTF(ViewVariable.ip);
-			out.flush();
-			out.writeInt(ViewVariable.port);
+            out.writeUTF(ViewVariable.ip);
             out.flush();
-			out.writeUTF(ViewVariable.hash);
-			out.flush();
+            out.writeInt(ViewVariable.port);
+            out.flush();
+            out.writeUTF(ViewVariable.hash);
+            out.flush();
             out.close();
         } catch (IOException e1){
             log.error("IO Exception, write option");
         }
     }
     /**
-     * Update informatio about tasks
+     * Updates information about tasks
      */
     public void updateTable() {      
             total.setText("TotalSize :" + tableModel.total);
@@ -448,43 +524,60 @@ public class ManagerView extends JFrame {
             week.setText("  This week :" + tableModel.week);
     }
     /**
-    * update all task
+    * updates all tasks
     */
     public void notifyGetAll(ParsedInfo pars) {
-    	controller.setOutStream(sc.getOut());
         ViewVariable.uid = pars.getUserID();
         tableModel = new TableModel(pars.getAllTasks());
         table.setModel(tableModel);
         updateTable();
+        nf = new Notifier();  
+        getAll = true;
     }
     /**
-    * Add task into the table.
-    * @param ts edit task.
+    * Adds task into the table.
+    * @param ts adding task.
     */
     public void notifyAdd(TaskInfo ts) {
-        tableModel.addTask(ts);
-        updateTable();
+        synchronized (tableModel) {
+            tableModel.addTask(ts);
+            updateTable();
+        }
     }
-    public void notifyError() {
-		table.setModel(new TableModel(new Hashtable<Long,TaskInfo>()));                        
-        menuCom.setEnabled(false);
-		sc.stopCommander();
-		sc = null;
-	}
 	/**
-    * Edit task in the table.
-    * @param ts edit task.
-    */
-    public void notifyEdit(TaskInfo ts) {
-        tableModel.editTask(tableModel.getSelectedRowById(ts.getID()),ts);
-        updateTable();
+	* Client disconnects. 
+	*/
+    public void notifyDisconnect() {
+        table.setModel(new TableModel(new Hashtable<Long,TaskInfo>()));                        
+        menuCom.setEnabled(false);
+		bConnect.setEnabled(true);
+		if (getAll && (sc != null)) {
+            sc.stopCommander();
+        }
+        sc = null;
+        if (nf != null) {
+            nf.stop();
+        }
+        nf = null;
     }
     /**
-    * Remove task from table.
-    * @param id task id.
+    * Edits task in the table.
+    * @param ts editting task.
+    */
+    public void notifyEdit(TaskInfo ts) {
+        synchronized (tableModel) {
+            tableModel.editTask(tableModel.getSelectedRowById(ts.getID()),ts);
+            updateTable();
+        }
+    }
+    /**
+    * Removes task from table.
+    * @param id removing task id.
     */
     public void notifyRemove(long id) {
-        tableModel.removeTask(tableModel.getSelectedRowById(id));
-        updateTable();    
+        synchronized (tableModel) {
+            tableModel.removeTask(tableModel.getSelectedRowById(id));
+            updateTable();
+        }
     }
 }//end ManagerView

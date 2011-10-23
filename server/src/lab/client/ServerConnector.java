@@ -1,188 +1,277 @@
 package lab.client;
-
 import java.net.*;
 import lab.*;
 import lab.exception.*;
 import java.util.*;
+import java.io.*;
+import javax.swing.JOptionPane.*;
+import lab.client.view.*;
+import lab.client.conntroller.*;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.event.*;
 import java.awt.*;
-import java.io.*;
-import javax.swing.JOptionPane.*;
-import lab.client.view.*;
-
-public class ServerConnector extends JDialog {
-	public static final long serialVersionUID = 124322332l;
-	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(ServerConnector.class);
+/**
+* Creates new coonection. 
+*/
+public class ServerConnector {
+    public static final long serialVersionUID = 124322332l;
+    private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(ServerConnector.class);
     private PrintWriter out = null;
+    private ManagerView mv = null;
     private BufferedReader in = null;
-    private TaskInfo task = null;	
+    private TaskInfo task = null;    
     private Socket s = null;
-	private ManagerView mv = null;
-	private Commander com = null;
-	 /**
-    * Class get command from the server end change clien info.
+    private Commander com = null;
+    InputStream is = null;
+    /**
+    * Class gets and sends packages from the server end changes the clien information.
     */
-    private class Commander implements Runnable {
+    private class Commander implements Runnable, ManagerControllerInterface {
         private Thread thread = null;
+        private Sender sender = null;
+        private Stack<String>  sendCommands  = new Stack<String>();     //queue send xml packages
+        private Stack<String> incomingCommands = new Stack<String>();    // queue incoming xml packages
         public boolean stop = true;
-        public Commander() {
+        public boolean stoped = false;
+        public Commander(String hash) throws lab.exception.ConnectException{
+            connect(hash);
+            sender = new Sender();
             thread = new Thread(this);
             thread.setDaemon(true);
             thread.start();
         }
+		/**
+		* Create new connection, open stream.
+		* @param hash user name and password String;
+		* @throws lab.exception.ConnectException if connetion is not complete.
+		*/
+        public void connect(String hash) throws lab.exception.ConnectException{
+            try {
+                Socket s = new Socket(ViewVariable.ip,ViewVariable.port);
+                ServerConnector.this.s = s;
+                is = s.getInputStream();
+                in = new BufferedReader (
+                    new InputStreamReader(is));
+                out = new PrintWriter (
+                    s.getOutputStream(),true);
+                out.println(XMLUtil.packager("getAll",0,ViewVariable.hash,"msg", null, null));
+            } catch (IOException e) {
+                log.error(e);
+                throw new lab.exception.ConnectException(e);
+            }
+        }
+		/**
+		* class makes new thread that send packages of the server.
+		*/
+        private class Sender implements Runnable {
+            private Thread thread = null;
+            private boolean run = true;
+            private boolean stop = false;
+            public Sender () {
+                thread = new Thread(this);
+                thread.setDaemon(true);
+                thread.start();
+            }
+            public void run() {
+                while (run) {					
+                    if( out == null) {
+                        continue;
+                    }
+                    synchronized (sendCommands) {
+                        while(!sendCommands.empty()) {
+                            out.println(sendCommands.pop());
+                        }
+                        try {
+                            sendCommands.wait();
+                        } catch (InterruptedException e) {
+                            log.error(e);
+                        }
+                    }                        
+                }
+                stop = true;
+            }
+			/**
+			* Safe stop Sender thread.
+			*/
+            public void stop() {
+                run = false;
+                synchronized (sendCommands) {
+                    sendCommands.notify();
+                }
+                
+            }
+			/**
+			* Checked stop or not Sender.
+			*/
+            public boolean isStoped() {
+                return stop;
+            }
+        }
+                
         /**
-        *    Create new thread, look through the comman. 
+        *    Create new thread, look through incoming packages. 
         */
         public void run() {
             while (stop) {    
-                try {
-                    thread.sleep(1000);
-                } catch (InterruptedException e) {}
+                Thread.yield();				
                 try {
                     if( in == null) {
                         continue;
                     }
-                    String s = in.readLine();
-                    log.info("commander : "+s);
-					if (s == null) {
-						continue;
-					}
-                    ParsedInfo pars = XMLUtil.parser(s);
-                    String com = pars.getCommand();
-					if (com.equals("sendAll")) {					
-						mv.notifyGetAll(pars);
-					}
-					if (com.equals("disconnect")) {
-						JOptionPane.showMessageDialog(mv,pars.getMessage(),pars.getCommand(),JOptionPane.ERROR_MESSAGE);
-						mv.notifyError();
-					}
-                    if (com.equals("add")) {
-                        mv.notifyAdd(pars.getTask());
+                    while( is.available() != 0) {
+                        String s = in.readLine();
+                        if (s == null) {
+                            continue;
+                        }
+                        incomingCommands.push(s);
                     }
-                    if (com.equals("edit")) {
-                        mv.notifyEdit(pars.getTask());
-                    }
-                    if (com.equals("remove")) {
-                        mv.notifyRemove(pars.getTask().getID());
-                    }
-                    if (com.equals("error")) {
-                        JOptionPane.showMessageDialog(mv,"Server error","ERROR",JOptionPane.ERROR_MESSAGE);
-						mv.notifyError();
-                    }
+                    while(!incomingCommands.empty()) {                    
+                        ParsedInfo pars = XMLUtil.parser(incomingCommands.pop());
+                        String com = pars.getCommand();
+                        if ("sendAll".equals(com)) {                    
+                            mv.notifyGetAll(pars);
+                        }
+                        if ("disconnect".equals(com)) {
+							stop();
+                            JOptionPane.showMessageDialog(mv,pars.getMessage(),pars.getCommand(),JOptionPane.ERROR_MESSAGE);
+                            mv.notifyDisconnect();
+                        }
+                        if ("add".equals(com)) {
+                            mv.notifyAdd(pars.getTask());
+                        }
+                        if ("edit".equals(com)) {
+                            mv.notifyEdit(pars.getTask());
+                        }
+                        if ("remove".equals(com)) {
+                            mv.notifyRemove(Long.parseLong(pars.getMessage()));
+                        }
+                        if ("error".equals(com)) {
+                            JOptionPane.showMessageDialog(mv,pars.getMessage(),pars.getCommand(),JOptionPane.ERROR_MESSAGE);                            
+                            mv.notifyDisconnect();
+                        }
+                    }    
                 } catch (IOException e) {
                     log.error(e);
                 if (!s.isClosed()) {
                     JOptionPane.showMessageDialog(mv,"Server error","ERROR",JOptionPane.ERROR_MESSAGE);
-					mv.notifyError();
+                    mv.notifyDisconnect();
+                }                
+                }                
+            }
+            stop();
+        }
+    /**
+    * validation task.
+    * @param task reference on the validation task.
+    * @throws BadTaskException if task is invalide.
+    */
+        private void taskValidation (TaskInfo task) throws BadTaskException {
+            if (task.getDate().before(new Date())) {
+                throw new BadTaskException("Date incorrect");
+            }
+            if (task.getExec() != null && !task.getExec().getName().equals(" ")) {
+                String file = task.getExec().getPath();
+                if (file.equals("")) {return;}
+                if(!file.regionMatches(true,file.length()-3,"exe",0,3)) {
+                    throw new BadTaskException("Chouse file incorrect file= "+ file);
                 }
-                
-                }
+            }
+            if (task.getName().length() == 0) {
+                throw new BadTaskException("Name incorrect");
             }
         }
-    }
-	
-	public ServerConnector(ManagerView mv) {
-		super(mv);
-		this.mv = mv;
-		connectionWindow();
-	}
-	public void startCommander() {
-		com = new Commander();
-	}
-	public void stopCommander() {
-		try {
-			if (out != null) {
-				out.println(XMLUtil.packager("disconnect",ViewVariable.uid,ViewVariable.hash,"msg", new TaskInfoImpl(), null));
-				s.close();
-			}
-		} catch (IOException e) {
-			log.error(e);
-		}
-		com.stop = false;
-		com = null;
-	}
-	/**
-    * Show conection dialog and connect to the server.
-    */
-    public void connectionWindow() {
-        int W = 800;
-        int H = 300;
-        Box boxName = Box.createHorizontalBox();
-        Box boxPassword = Box.createHorizontalBox();
-        Box boxButton = Box.createHorizontalBox();
-        Box allBoxes = Box.createVerticalBox();
-        setSize(W/2,H/2);
-        setBounds(W/4,H/4,W/2,H/2);
-        final JLabel lname = new JLabel("Name:");
-        boxName.add(lname);
-        //----- JTextField
-        final JTextField tname = new JTextField();
-        tname.setToolTipText("Writes user name here");		
-        tname.setMaximumSize(new Dimension(getSize().height,30));        
-        boxName.add(tname);
-        //----- JTextArea Info   
-        final JLabel lPass = new JLabel("Password:"); 
-        final JTextField tPass = new JTextField();
-        tPass.setMaximumSize(new Dimension(getSize().height,30));  
-        tPass.setToolTipText("Writes password here");
-		StringTokenizer st = new StringTokenizer(ViewVariable.hash,"|");
-		tname.setText(st.nextToken());
-		tPass.setText(st.nextToken());
-        boxPassword.add(lPass);
-        boxPassword.add(tPass);
-        JButton save = new JButton("Connect");
-        save.addActionListener( new ActionListener() {
-            public void actionPerformed(ActionEvent ae) {
-				try {
-                    String name = tname.getText();
-                    String pass = tPass.getText();
-                    if ("".equals(name) || "".equals(pass)) {
-                        JOptionPane.showMessageDialog(ServerConnector.this, "name or password wrong","Warning",JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-                    Socket s = new Socket(ViewVariable.ip,ViewVariable.port);
-                    ServerConnector.this.s = s;
-                    in = new BufferedReader (
-                        new InputStreamReader(s.getInputStream()));
-                    out = new PrintWriter (
-                        s.getOutputStream(),true);
-					ViewVariable.hash = name+"|"+pass;
-					out.println(XMLUtil.packager("getAll",0,ViewVariable.hash,"msg", new TaskInfoImpl(), null));
-                } catch (Exception e) {
-                    JOptionPane.showMessageDialog(ServerConnector.this, "Server connect error","Error",JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                dispose();
+        /**
+         * Add task
+         * @throws DataAccessException if we can't have access to Data Base.
+         * @throws BadTaskException if task is invalide.
+         * @param task reference on the add task.
+         */
+        public void addTask(TaskInfo task) throws DataAccessException, BadTaskException {
+            taskValidation(task);
+            String s = XMLUtil.packager("add",ViewVariable.uid,ViewVariable.hash,ViewVariable.msg,task,null);
+            synchronized (sendCommands) {
+                sendCommands.push(s);
+                sendCommands.notify();
             }
-        });
-        save.setToolTipText("Connect to the server");
-        setTitle("Connection");
-        boxButton.add(save);
-        allBoxes.add(boxName);
-        allBoxes.add(boxPassword);
-        allBoxes.add(boxButton);
-        add(allBoxes);
-        setVisible(true);
+            
+        }
+         /**
+         * Remove task.
+         * @param id remove task.
+         * @throws DataAccessException if we can't have access to Data Base.
+         */
+        public void delTask(long id) throws DataAccessException {
+            String s = XMLUtil.packager("remove",ViewVariable.uid,ViewVariable.hash,id+"",null,null);
+            synchronized (sendCommands) {
+                sendCommands.push(s);
+                sendCommands.notify();
+            }
+        }
+        /**
+        * Edit task
+        * @throws DataAccessException if we can't have access to Data Base.
+        * @throws BadTaskException if task is invalide.
+        * @param task reference on the edit task.
+        */
+        public void editTask(long id, TaskInfo task) throws DataAccessException, BadTaskException {
+            taskValidation(task);
+            String s = XMLUtil.packager("edit",ViewVariable.uid,ViewVariable.hash,ViewVariable.msg,task,null);
+            synchronized (sendCommands) {
+                sendCommands.push(s);
+                sendCommands.notify();
+            }
+        }
+		/**
+		* Safe stop Commander thread.
+		*/
+        private void stop() {
+            try {
+                if (out != null) {
+                    out.println(XMLUtil.packager("disconnect",ViewVariable.uid,ViewVariable.hash,"msg", null, null));
+                    in.close();
+                    sender.stop();
+                    while(!sender.isStoped()) {
+                    }
+                    out.close();
+                    s.close();
+                }
+            } catch (IOException e) {
+                log.error(e);
+            }
+			if (com != null) {
+				com.stoped = true; 
+			}
+        }
+        /**
+		* Checked stop or not Commander.
+		*/
+		public boolean isStoped() {
+            return stoped;
+        }
     }
-   
-	  /**
-    * return socket Out stream.
-    */
-   public PrintWriter getOut () {
-    return this.out;
-   }
-   /**
-    * return socket In stream.
-    */
-   public BufferedReader getIn() {
-    return in;
-   }
-   /**
-    * return socket.
-    */
-   public Socket getSocket() {
-    return s;
-   }
+	/**
+	* Mades new ServerConnector object.
+	*/
+    public ServerConnector(ManagerView mv) {
+        this.mv = mv;
+    }
+	/**
+	* Start thread that look through send or get xml packager.
+	* @param hash user name and password hash.
+	* @throws lab.exception.ConnectException if connetion is not complete.
+	*/
+    public ManagerControllerInterface startCommander(String hash) throws lab.exception.ConnectException{
+        com = new Commander(hash);
+        return com;
+    }
+	/**
+	* Stop connection thread.
+	*/
+    public void stopCommander() {
+        com.stop = false;
+        while(!com.isStoped()) {
+        }
+        com = null;
+    }  
 }

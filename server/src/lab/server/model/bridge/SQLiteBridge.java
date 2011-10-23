@@ -38,8 +38,8 @@ public class SQLiteBridge implements Bridge{
         SQLiteJob<Integer> job = queue.execute(new SQLiteJob<Integer>() {
             protected Integer job(SQLiteConnection connection) 
                 throws SQLiteException {
-                    connection.exec("BEGIN TRANSACTION;CREATE TABLE IF NOT EXISTS user (uid INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, pass TEXT);COMMIT");
-                    connection.exec("BEGIN TRANSACTION;CREATE TABLE IF NOT EXISTS tasks (id LONG, name TEXT, info TEXT, file TEXT, data INTEGER PRIMARY KEY, uid INTEGER, FOREIGN KEY (uid) REFERENCES user(uid));COMMIT");
+                    connection.exec("BEGIN TRANSACTION;CREATE TABLE IF NOT EXISTS user (uid INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, pass TEXT);COMMIT");
+                    connection.exec("BEGIN TRANSACTION;CREATE TABLE IF NOT EXISTS tasks (id LONG, name TEXT, info TEXT, file TEXT, data INTEGER, uid INTEGER, FOREIGN KEY (uid) REFERENCES user(uid));COMMIT");
                 return -1;
             }                
         });
@@ -52,20 +52,29 @@ public class SQLiteBridge implements Bridge{
             }
         }
     }
+	/**
+	* Add the new user to the data base.
+	* @param user username.
+	* @param pass user password.	
+    * @throws DataAccessException if we can't have access to Data Base.
+	*/
     public void addNewUser(String user, String pass) throws DataAccessException{
         StringBuffer sb = new StringBuffer("BEGIN TRANSACTION;INSERT INTO user(name,pass) VALUES('");
-        sb.append(user);
+        sb.append(escapeString(user));
         sb.append("','");
-        sb.append(pass);
+        sb.append(escapeString(pass));
         sb.append("');COMMIT;");
         final String command = sb.toString();
-        SQLiteJob<Integer> job = queue.execute(new SQLiteJob<Integer>() {
-            protected Integer job(SQLiteConnection connection) 
-                throws SQLiteException {
-                    connection.exec(command);
-                return -1;
-            }
-        });
+        SQLiteJob<Integer> job = null;
+        synchronized (queue) {
+            job = queue.execute(new SQLiteJob<Integer>() {
+                protected Integer job(SQLiteConnection connection) 
+                    throws SQLiteException {
+                        connection.exec(command);
+                    return -1;
+                }
+            });
+        }
         if (job.complete() == null) {
             log.error("user " + user +job.getError());
             throw new DataAccessException("Add user Error user "+ user,job.getError());
@@ -77,6 +86,7 @@ public class SQLiteBridge implements Bridge{
     /**
      * Add task
      * @param task reference on the add task.
+	 * @param uid user identifier.
      * @throws DataAccessException if we can't have access to Data Base.
      */
     public void addTask(TaskInfo task, int uid)throws DataAccessException {
@@ -98,15 +108,18 @@ public class SQLiteBridge implements Bridge{
         sb.append(uid);
         sb.append("');COMMIT;");
         final String command = sb.toString();
-        SQLiteJob<Integer> job = queue.execute(new SQLiteJob<Integer>() {
-            protected Integer job(SQLiteConnection connection) 
-                throws SQLiteException {
-                    connection.exec(command);
-                return -1;
-            }
-        });
+        SQLiteJob<Integer> job = null;
+        synchronized (queue) {
+            job = queue.execute(new SQLiteJob<Integer>() {
+                protected Integer job(SQLiteConnection connection) 
+                    throws SQLiteException {
+                        connection.exec(command);
+                    return -1;
+                }
+            });
+        }
         if (job.complete() == null) {
-            log.error("Add task Error, UID = "+ uid + job.getError());
+            log.error("Add task Error, UID = "+ uid + job.getError()+ "command = "+command);
             throw new DataAccessException("Add task Error, UID = "+ uid,job.getError());
         }
         if (log.isInfoEnabled()) {
@@ -119,13 +132,16 @@ public class SQLiteBridge implements Bridge{
      */
     public void removeAll() throws DataAccessException{
         final String command  = "BEGIN TRANSACTION;DELETE * FROM tasks;COMMIT;";
-        SQLiteJob<Integer> job = queue.execute(new SQLiteJob<Integer>() {
-            protected Integer job(SQLiteConnection connection) 
-                throws SQLiteException {
-                    connection.exec(command);
-                return -1;
-            }
-        });
+        SQLiteJob<Integer> job = null;
+        synchronized (queue) {
+            job = queue.execute(new SQLiteJob<Integer>() {
+                protected Integer job(SQLiteConnection connection) 
+                    throws SQLiteException {
+                        connection.exec(command);
+                    return -1;
+                }
+            });
+        }
         if (job.complete() == null) {
             log.error(job.getError());
             throw new DataAccessException("Remove all tasks Error",job.getError());
@@ -136,18 +152,27 @@ public class SQLiteBridge implements Bridge{
     }
      /**
      * Remove task.
-     * @param id id for the removes task.
+     * @param id id for the removes task.	 
+	 * @param uid user identifier.
      * @throws DataAccessException if we can't have access to Data Base.
      */
     public void removeTask(long id, int uid) throws DataAccessException{
-        final String command = "BEGIN TRANSACTION;DELETE FROM tasks WHERE id = " + id + " AND uid = "+ uid +";COMMIT;";
-        SQLiteJob<Integer> job = queue.execute(new SQLiteJob<Integer>() {
-            protected Integer job(SQLiteConnection connection) 
-                throws SQLiteException {
-                    connection.exec(command);                    
-                return -1;
-            }
-        });
+        StringBuffer sb = new StringBuffer("BEGIN TRANSACTION;DELETE FROM tasks WHERE id = ");
+        sb.append(id);
+        sb.append(" AND uid = ");
+        sb.append(uid);
+        sb.append(";COMMIT;");
+        final String command = sb.toString();
+        SQLiteJob<Integer> job = null;
+        synchronized (queue) {    
+            job = queue.execute(new SQLiteJob<Integer>() {
+                protected Integer job(SQLiteConnection connection) 
+                    throws SQLiteException {
+                        connection.exec(command);                    
+                    return -1;
+                }
+            });
+        }
         if (job.complete() == null) {
             log.error("UID = "+ uid + job.getError());
             throw new DataAccessException("Remove task Error UID = " + uid,job.getError());            
@@ -158,41 +183,51 @@ public class SQLiteBridge implements Bridge{
     }
     /**
     * Get task from file.
-    * @param id id for the gets task.
+    * @param id id for the gets task.	
+	* @param uid user identifier.
     * @throws DataAccessException if we can't have access to Data Base.
     */
     public TaskInfo getTask(final long id ,final int uid) throws DataAccessException{
-        SQLiteJob<TaskInfo> job = queue.execute(new SQLiteJob<TaskInfo>() {
-            protected TaskInfo job(SQLiteConnection connection) throws SQLiteException {
-                SQLiteStatement st = connection.prepare("SELECT * FROM tasks WHERE id = " + id +" AND uid = "+ uid);
-                try {
-                    if (!st.step()) {
-                        st.dispose();
-                        return null;
-                    } else {
-                        TaskInfo taskTemp = new TaskInfoImpl();
-                        if (st.hasRow()) {
-                            taskTemp.setID((Long)st.columnValue(0));
-                            taskTemp.setName((String)st.columnValue(1));
-                            taskTemp.setInfo((String)st.columnValue(2));
-                            String s = (String)st.columnValue(3);
-                            if ("null".equals(s)) {
-                                taskTemp.setExec(null);
-                            } else {
-                                taskTemp.setExec(new File(s));
-                            }
-                            taskTemp.setDate(new Date((Long) st.columnValue(4)));
-                            return taskTemp;
-                        } else {
+        StringBuffer sb = new StringBuffer("SELECT * FROM tasks WHERE id = ");
+        sb.append(id);
+        sb.append(" AND uid = ");
+        sb.append(uid);
+        sb.append(";COMMIT;");
+        final String command = sb.toString();
+        SQLiteJob<TaskInfo> job = null;
+        synchronized (queue) {
+            job = queue.execute(new SQLiteJob<TaskInfo>() {
+                protected TaskInfo job(SQLiteConnection connection) throws SQLiteException {
+                    SQLiteStatement st = connection.prepare(command);
+                    try {
+                        if (!st.step()) {
                             st.dispose();
                             return null;
-                        }
-                    }               
-                } finally {
-                    st.dispose();
+                        } else {
+                            TaskInfo taskTemp = new TaskInfoImpl();
+                            if (st.hasRow()) {
+                                taskTemp.setID((Long)st.columnValue(0));
+                                taskTemp.setName((String)st.columnValue(1));
+                                taskTemp.setInfo((String)st.columnValue(2));
+                                String s = (String)st.columnValue(3);
+                                if ("null".equals(s)) {
+                                    taskTemp.setExec(null);
+                                } else {
+                                    taskTemp.setExec(new File(s));
+                                }
+                                taskTemp.setDate(new Date((Long) st.columnValue(4)));
+                                return taskTemp;
+                            } else {
+                                st.dispose();
+                                return null;
+                            }
+                        }               
+                    } finally {
+                        st.dispose();
+                    }
                 }
-            }
-        });
+            });
+        }
         if (job.complete() == null) {
             log.error("UID = " + uid +job.getError());
             throw new DataAccessException("Get Task Error UID = " + uid,job.getError());
@@ -203,13 +238,20 @@ public class SQLiteBridge implements Bridge{
         return job.complete();
     }
     /**
-    * Load all tasks from file.
+    * Load the user all tasks from file.	
+	* @param uid user identifier.
     * @throws DataAccessException if we can't have access to Data Base.
     */
     public Hashtable<Long,TaskInfo> getAll(final int uid) throws DataAccessException {
-            SQLiteJob<Hashtable<Long,TaskInfo>> job =  queue.execute(new SQLiteJob<Hashtable<Long,TaskInfo>>() {
+        StringBuffer sb = new StringBuffer("SELECT * FROM tasks WHERE uid = ");
+        sb.append(uid);
+        sb.append(";COMMIT;");
+        final String command = sb.toString();
+        SQLiteJob<Hashtable<Long,TaskInfo>> job = null;
+        synchronized (queue) {    
+            job =  queue.execute(new SQLiteJob<Hashtable<Long,TaskInfo>>() {
                 protected Hashtable<Long,TaskInfo> job(SQLiteConnection connection) throws SQLiteException {
-                    SQLiteStatement st = connection.prepare("SELECT * FROM tasks WHERE uid = "+ uid);
+                    SQLiteStatement st = connection.prepare(command);
                     try {
                         Hashtable<Long,TaskInfo> h = new Hashtable<Long,TaskInfo>();
                         while (st.step()) { 
@@ -236,7 +278,8 @@ public class SQLiteBridge implements Bridge{
                         st.dispose();
                     }
                 }
-        });
+            });
+        }
         if (job.complete() == null) {
             log.error("UID = " + uid + job.getError());
             throw new DataAccessException("Get Task Error UID = "+ uid,job.getError());
@@ -250,6 +293,7 @@ public class SQLiteBridge implements Bridge{
     * Edit task
     * @param id id for the edits task.
     * @param task reference on the add task.
+	* @param uid user identifier.
     * @throws DataAccessException if we can't have access to Data Base.
     */
     public void editTask(long id, TaskInfo task, final int uid) throws DataAccessException {
@@ -267,13 +311,16 @@ public class SQLiteBridge implements Bridge{
         sb.append(task.getDate().getTime());
         sb.append(" WHERE id = "+ id +" AND uid = "+ uid +";COMMIT;");
         final String command = sb.toString();
-        SQLiteJob<Integer> job = queue.execute(new SQLiteJob<Integer>() {
-            protected Integer job(SQLiteConnection connection) 
-                throws SQLiteException {
-                    connection.exec(command);
-                return -1;
-            }
-        });
+        SQLiteJob<Integer> job = null;
+        synchronized (queue) {    
+            job = queue.execute(new SQLiteJob<Integer>() {
+                protected Integer job(SQLiteConnection connection) 
+                    throws SQLiteException {
+                        connection.exec(command);
+                    return -1;
+                }
+            });
+        }
         if (job.complete() == null ) {
             log.error("UID = "+ uid + job.getError());
             throw new DataAccessException("Edit task Error UID = " + uid,job.getError());
@@ -282,8 +329,16 @@ public class SQLiteBridge implements Bridge{
             log.info("DataBase, edit task UID = " + uid);
         }
     }
+	/**
+	* Return user identifier.
+	* @param userName username.
+	* @param pass user password.
+	* @throws DataAccessException if we can't have access to Data Base.
+	*/
     public Integer getUID(final String userName, final String pass) throws DataAccessException {
-            SQLiteJob<Integer> job =  queue.execute(new SQLiteJob<Integer>() {
+        SQLiteJob<Integer> job = null;
+        synchronized (queue) {    
+            job =  queue.execute(new SQLiteJob<Integer>() {
                 protected Integer job(SQLiteConnection connection) throws SQLiteException {
                     SQLiteStatement st = connection.prepare("SELECT * FROM user WHERE user.name = \""+ userName +"\" AND pass = \""+ pass +"\"");
                     Integer uid = -1;
@@ -301,7 +356,8 @@ public class SQLiteBridge implements Bridge{
                         st.dispose();
                     }
                 }
-        });
+            });
+        }
         if (job.complete() == null) {
             log.error(job.getError());
             throw new DataAccessException("Get UID Error",job.getError());

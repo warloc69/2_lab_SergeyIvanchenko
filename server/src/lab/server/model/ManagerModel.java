@@ -7,7 +7,7 @@ import lab.exception.*;
 /**
  * Class Create model for the Task Manager
  */
-public class ManagerModel implements  MannagerWrite, ModelGetInf{
+public class ManagerModel implements  ManagerWriter {
     private Bridge sqlBridge;
     private Hashtable<Integer,Hashtable<Long,TaskInfo>> list = new  Hashtable<Integer,Hashtable<Long,TaskInfo>>();
     /**
@@ -22,27 +22,45 @@ public class ManagerModel implements  MannagerWrite, ModelGetInf{
     public ManagerModel()  throws DataAccessException {
         sqlBridge = new SQLiteBridge();
     }
+	/**
+	* Add the new user to the data base.
+	* @param user username.
+	* @param pass user password.	
+    * @throws DataAccessException if we can't have access to Data Base.
+	*/
     public int addNewUser(String user, String pass) throws DataAccessException {
-        int uid = sqlBridge.getUID(user,pass);
-        if (uid == -1) {
-            sqlBridge.addNewUser(user,pass);
-            return sqlBridge.getUID(user,pass);
-        } else     { 
-            return uid;
+        synchronized (sqlBridge) {
+            int uid = sqlBridge.getUID(user,pass);
+            if (uid == -1) {
+                sqlBridge.addNewUser(user,pass);
+                return sqlBridge.getUID(user,pass);
+            } else     { 
+                return uid;
+            }
         }
     }
     /**
     * Load task from BD
+	* @param uid user identifier.
     * @throws DataAccessException if we can't have access to Data Base.
     */
     private void loadTasks(final int uid) throws DataAccessException {
-        Hashtable<Long,TaskInfo> task = sqlBridge.getAll(uid);
-        if (task != null) {
-            list.put(uid,task);    
-        } else {
-            list.put(uid, new Hashtable<Long,TaskInfo>());
+        synchronized (sqlBridge) {
+            Hashtable<Long,TaskInfo> task = sqlBridge.getAll(uid);
+            if (task != null) {
+                list.put(uid,task);    
+            } else {
+                list.put(uid, new Hashtable<Long,TaskInfo>());
+            }
         }
     }
+	/**
+	* connect new user to the data base.
+	* @param user username.
+	* @param pass user password.
+	* @return user identifier.
+    * @throws DataAccessException if we can't have access to Data Base.
+	*/
     public int connectNewUser(String user, String pass)  throws DataAccessException {
         int uid = addNewUser(user,pass);
         loadTasks(uid);
@@ -51,52 +69,68 @@ public class ManagerModel implements  MannagerWrite, ModelGetInf{
     /**
      * Remove task.
      * @param id id removing task.
+	 * @param uid user identifier.
      * @throws DataAccessException if we can't have access to Data Base.
      */
     public void removeTask(long id, final int uid) throws DataAccessException{
-        sqlBridge.removeTask(id, uid);
-        list.get(uid).remove(id);
+        synchronized (sqlBridge) {
+            sqlBridge.removeTask(id, uid);
+            list.get(uid).remove(id);
+        }
     }
     /**
      * Add task
      * @param task reference on the adding task.
+	 * @param uid user identifier.
+	 * @return added task.
      * @throws DataAccessException if we can't have access to Data Base.
      */
-    public void addTask(TaskInfo task,int uid) throws DataAccessException{
+    public TaskInfo addTask(TaskInfo task,int uid) throws DataAccessException{
         task.setID(IDGenerator.get());
-        sqlBridge.addTask(task, uid);
-        try {
-            list.get(uid).put(task.getID(),task);
-        } catch (NullPointerException e) {
-            list.put(uid,new Hashtable<Long,TaskInfo>());
-            list.get(uid).put(task.getID(),task);
+        synchronized (sqlBridge) {
+            sqlBridge.addTask(task, uid);
+            try {
+                list.get(uid).put(task.getID(),task);
+            } catch (NullPointerException e) {
+                list.put(uid,new Hashtable<Long,TaskInfo>());
+                list.get(uid).put(task.getID(),task);
+            }
+            return task;
         }
     }
     /**
     * Edit task
     * @param task reference on the edit task.
+	* @param uid user identifier.
     * @param id id edits task.
     * @throws DataAccessException if we can't have access to Data Base.
     */
     public void editTask(long id, TaskInfo task, int uid) throws DataAccessException {        
-        sqlBridge.editTask(id,task,uid);
-        list.get(uid).put(id,task);        
+        synchronized (sqlBridge) {
+            sqlBridge.editTask(id,task,uid);
+            list.get(uid).put(id,task); 
+        }
     }
     /**
-    *    Returns All tasks
+    * Returns All tasks
+	* @param uid user identifier.
     */
     @SuppressWarnings("unchecked")
-    public Hashtable<Long,TaskInfo> getAllTasks(int uid) {
-        //return new Hashtable<Long,TaskInfo>();
+    public synchronized Hashtable<Long,TaskInfo> getAllTasks(int uid) {
         return (Hashtable<Long,TaskInfo>) list.get(uid).clone();
     }
     /**
-    *    Returns task.
+    * Returns task.
     * @param id id returning task.
+	* @param uid user identifier.
     * @throws DataAccessException if we can't have access to Data Base.
     */
     public TaskInfo getTask(long id, int uid) throws DataAccessException{
-        return sqlBridge.getTask(id,uid);
+        TaskInfo ts = null;
+        synchronized (sqlBridge) {
+            ts = sqlBridge.getTask(id,uid);
+        }
+        return ts;
     }
     
 }//end ManagerModel
