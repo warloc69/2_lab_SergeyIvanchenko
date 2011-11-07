@@ -4,7 +4,6 @@ import lab.*;
 import lab.exception.*;
 import java.util.*;
 import java.io.*;
-import javax.swing.JOptionPane.*;
 import lab.client.view.*;
 import lab.client.conntroller.*;
 import javax.swing.*;
@@ -14,7 +13,7 @@ import java.awt.*;
 /**
 * Creates new coonection. 
 */
-public class ServerConnector {
+public class ServerConnector implements ManagerControllerInterface{
     public static final long serialVersionUID = 124322332l;
     private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(ServerConnector.class);
     private PrintWriter out = null;
@@ -23,11 +22,11 @@ public class ServerConnector {
     private TaskInfo task = null;    
     private Socket s = null;
     private Commander com = null;
-    InputStream is = null;
+    private InputStream is = null;
     /**
     * Class gets and sends packages from the server end changes the clien information.
     */
-    private class Commander implements Runnable, ManagerControllerInterface {
+    private class Commander implements Runnable{
         private Thread thread = null;
         private Sender sender = null;
         private Stack<String>  sendCommands  = new Stack<String>();     //queue send xml packages
@@ -57,6 +56,17 @@ public class ServerConnector {
                     s.getOutputStream(),true);
                 out.println(XMLUtil.packager("getAll",0,ViewVariable.hash,"msg", null, null));
             } catch (IOException e) {
+               try {
+                   if (in != null) {
+                        in.close();
+                    }
+                    if (out != null) {
+                        out.close();
+                    }
+                } catch (IOException e1) {
+                    log.error(e1);
+                }
+                stop = false;
                 log.error(e);
                 throw new lab.exception.ConnectException(e);
             }
@@ -134,8 +144,7 @@ public class ServerConnector {
                         }
                         if ("disconnect".equals(com)) {
 							stop();
-                            JOptionPane.showMessageDialog(mv,pars.getMessage(),pars.getCommand(),JOptionPane.ERROR_MESSAGE);
-                            mv.notifyDisconnect();
+                            mv.notifyDisconnect(pars.getMessage(),pars.getCommand());
                         }
                         if ("add".equals(com)) {
                             mv.notifyAdd(pars.getTask());
@@ -147,15 +156,15 @@ public class ServerConnector {
                             mv.notifyRemove(Long.parseLong(pars.getMessage()));
                         }
                         if ("error".equals(com)) {
-                            JOptionPane.showMessageDialog(mv,pars.getMessage(),pars.getCommand(),JOptionPane.ERROR_MESSAGE);                            
-                            mv.notifyDisconnect();
+                            stop();                        
+                            mv.notifyDisconnect(pars.getMessage(),pars.getCommand());
                         }
                     }    
                 } catch (IOException e) {
+                    stop = false;
                     log.error(e);
                 if (!s.isClosed()) {
-                    JOptionPane.showMessageDialog(mv,"Server error","ERROR",JOptionPane.ERROR_MESSAGE);
-                    mv.notifyDisconnect();
+                    mv.notifyDisconnect("Server error","ERROR");
                 }                
                 }                
             }
@@ -263,15 +272,41 @@ public class ServerConnector {
 	*/
     public ManagerControllerInterface startCommander(String hash) throws lab.exception.ConnectException{
         com = new Commander(hash);
-        return com;
+        return this;
     }
 	/**
 	* Stop connection thread.
 	*/
-    public void stopCommander() {
+    public void stop() {
         com.stop = false;
-        while(!com.isStoped()) {
+      /*  while(!com.isStoped()) {
         }
-        com = null;
-    }  
+        com = null;*/
+    }
+    /**
+     * Add task
+	 * @param task reference on the add task.
+     * @throws DataAccessException if we can't have access to Data Base.
+     * @throws BadTaskException if task is invalide.
+     */
+    public void addTask(TaskInfo task) throws DataAccessException, BadTaskException {
+        com.addTask(task);
+    }
+     /**
+     * Remove task.
+     * @param id removeing task.
+     * @throws DataAccessException if we can't have access to Data Base.
+     */
+    public void delTask(long id)throws DataAccessException {
+        com.delTask(id);
+    }
+    /**
+    * Edit task
+    * @throws DataAccessException if we can't have access to Data Base.
+    * @throws BadTaskException if task is invalide.
+    * @param task reference on the edit task.
+    */
+    public void editTask(long id, TaskInfo task) throws DataAccessException, BadTaskException {
+        com.editTask(id,task);
+    }
 }

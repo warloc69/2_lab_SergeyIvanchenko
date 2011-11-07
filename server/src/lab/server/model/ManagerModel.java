@@ -28,7 +28,7 @@ public class ManagerModel implements  ManagerWriter {
 	* @param pass user password.	
     * @throws DataAccessException if we can't have access to Data Base.
 	*/
-    public int addNewUser(String user, String pass) throws DataAccessException {
+    public int addNewUser(String user, String pass) throws DataAccessException, UserAuthFailedException {
         synchronized (sqlBridge) {
             int uid = sqlBridge.getUID(user,pass);
             if (uid == -1) {
@@ -61,7 +61,7 @@ public class ManagerModel implements  ManagerWriter {
 	* @return user identifier.
     * @throws DataAccessException if we can't have access to Data Base.
 	*/
-    public int connectNewUser(String user, String pass)  throws DataAccessException {
+    public int connectNewUser(String user, String pass)  throws DataAccessException, UserAuthFailedException {
         int uid = addNewUser(user,pass);
         loadTasks(uid);
         return uid;

@@ -20,74 +20,64 @@ public class UserConnector implements Runnable {
         this.soc = soc;
         this.model = model;
         t = new Thread(this);
-		t.setDaemon(true);
+        t.setDaemon(true);
         t.start();        
     }
     public void run () {
-            BufferedReader in = null;
-            PrintWriter out = null;
-            InputStream is = null;
-            try {
-                is  = soc.getInputStream();
-                in = new BufferedReader (
-                    new InputStreamReader(is));
-                out = new PrintWriter (
-                    soc.getOutputStream(),true);
-            } catch (IOException e) {
-                log.error(e);
-            }            
-            try {
-                ParsedInfo pInfo = XMLUtil.parser(in.readLine());
-                try {    
-                    uid = model.connectNewUser(pInfo.getUserName(),pInfo.getUserPass());
-                    String s = XMLUtil.packager("sendAll",uid,pInfo.getUserName()+"|"+pInfo.getUserPass()," ",null,model.getAllTasks(uid));
-                    if (log.isInfoEnabled()) {
-						log.info(s);
-					}
-                    out.println(s);  // send xml package all tasks of the client
-                } catch (DataAccessException e) {
-                    out.println(XMLUtil.packager("error",uid,"warning|warning","name or password is wrong",null,null));                    
-                    stoped = true;
-                    return;
-                }                
-                int  timecount = 0;
-                while (running) {
-                    Thread.yield();
-                    int i = is.available();
-                    if (i == 0)  {                        
+        BufferedReader in = null;
+        PrintWriter out = null;
+        InputStream is = null;
+        try {
+            is  = soc.getInputStream();
+            in = new BufferedReader (
+                new InputStreamReader(is));
+            out = new PrintWriter (
+                soc.getOutputStream(),true);
+            ParsedInfo pInfo = XMLUtil.parser(in.readLine()); 
+            uid = model.connectNewUser(pInfo.getUserName(),pInfo.getUserPass());
+            String s = XMLUtil.packager("sendAll",uid,pInfo.getUserName()+"|"+pInfo.getUserPass()," ",null,model.getAllTasks(uid));
+            if (log.isInfoEnabled()) {
+                log.info(s);
+            }
+            out.println(s);  // send xml package all tasks of the client
+            while (running) {
+                Thread.yield();
+                int i = is.available();
+                if (i == 0)  {                        
+                    continue;
+                }
+                String line = in.readLine();
+                if (log.isInfoEnabled()) {
+                    log.info(line);
+                }
+                if (line != null) {
+                    ParsedInfo pInfo1 = XMLUtil.parser(line);
+                    if (uid != pInfo1.getUserID()) {
+                        out.println(XMLUtil.packager("error",uid,"warning|warning","User ID is wrong. You was disconnected.",null,null));
+                        break;
+                    }
+                    if ("remove".equals(pInfo1.getCommand())) {
+                            model.removeTask(Long.parseLong(pInfo1.getMessage()),pInfo1.getUserID()); 
+                            out.println(line); 
+                            continue;
+                    }
+                    if("disconnect".equals(pInfo1.getCommand())) {
+                        break;
+                    }
+                    if ("add".equals(pInfo1.getCommand())) {
+                        TaskInfo task = model.addTask(pInfo1.getTask(),pInfo1.getUserID());                                
+                        out.println(XMLUtil.packager("add",uid,pInfo.getUserName()+"|"+pInfo.getUserPass()," ",task,null));
                         continue;
                     }
-                    String line = in.readLine();
-                    if (log.isInfoEnabled()) {
-						log.info(line);
-					}
-                    if (line != null) {
-                        ParsedInfo pInfo1 = XMLUtil.parser(line);
-						if (uid != pInfo1.getUserID()) {
-							out.println(XMLUtil.packager("error",uid,"warning|warning","User ID is wrong. You was disconnected.",null,null));
-							stoped = true; 
-							return;
-						}
-                        if ("remove".equals(pInfo1.getCommand())) {
-                                model.removeTask(Long.parseLong(pInfo1.getMessage()),pInfo1.getUserID()); 
-                                out.println(line); 
-                                continue;
-                        }
-                        if("disconnect".equals(pInfo1.getCommand())) {
-                            break;
-                        }
-                        if ("add".equals(pInfo1.getCommand())) {
-                                TaskInfo task = model.addTask(pInfo1.getTask(),pInfo1.getUserID());                                
-                                out.println(XMLUtil.packager("add",uid,pInfo.getUserName()+"|"+pInfo.getUserPass()," ",task,null));
-                                continue;
-                        }
-                        if ("edit".equals(pInfo1.getCommand())) {
-                                model.editTask(pInfo1.getTask().getID(),pInfo1.getTask(),pInfo1.getUserID());
-                                out.println(line);
-                                continue;
-                        }
+                    if ("edit".equals(pInfo1.getCommand())) {
+                        model.editTask(pInfo1.getTask().getID(),pInfo1.getTask(),pInfo1.getUserID());
+                        out.println(line);
+                        continue;
                     }
                 }
+            }
+        } catch (UserAuthFailedException e) {
+            out.println(XMLUtil.packager("error",uid,"warning|warning","name or password is wrong",null,null));
         } catch (DataAccessException e) {
             out.println(XMLUtil.packager("error",uid,"error|error","error",null,null));
         } catch (IOException e1) {
@@ -97,8 +87,12 @@ public class UserConnector implements Runnable {
                 if(!"".equals(exitMsg)) {
                     out.println(XMLUtil.packager("disconnect",0,"good|by","Server stoped. " + exitMsg,null,null));
                 }
-                in.close();
-                out.close();
+                if ( in != null) {
+                    in.close();
+                }
+                if (out != null) {
+                    out.close();
+                }
                 soc.close();
             } catch (IOException e2) {
                 log.error(e2);
@@ -107,18 +101,19 @@ public class UserConnector implements Runnable {
             }                
                 stoped = true;
                 t = null;
+                
         }            
     }
-	/**
-	* Check thread stop or not.
-	*/
+    /**
+    * Check thread stop or not.
+    */
     public boolean isStoped() {
         return stoped;
     }
-	/**
-	* Safe stops the UserConnector thread and disconnectd client.
-	* @param msg it's message that sends to the client before disconnect.
-	*/
+    /**
+    * Safe stops the UserConnector thread and disconnectd client.
+    * @param msg it's message that sends to the client before disconnect.
+    */
     public void stop(String msg) {
         this.exitMsg = msg;
         this.running = false;

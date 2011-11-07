@@ -35,7 +35,8 @@ public class ManagerView extends JFrame {
     private ServerConnector sc = null;
     private Notifier nf = null;
     private boolean getAll = false;
-	private JButton bConnect = null;
+    private JButton bConnect = null;
+    private JButton bDisconnect = null;
     public static final long serialVersionUID = 123312332l;
     private class Notifier implements Runnable {
         private Thread thread = null;
@@ -138,8 +139,8 @@ public class ManagerView extends JFrame {
             Box b = Box.createVerticalBox();
             menuConection.setMaximumSize(new Dimension(130,30));
             bConnect = new JButton( new ImageIcon("img\\connect.png"));
-			final JButton bDisconnect = new JButton( new ImageIcon("img\\disconnect.png"));
-			bDisconnect.setEnabled(false);
+            bDisconnect = new JButton( new ImageIcon("img\\disconnect.png"));
+            bDisconnect.setEnabled(false);
             bConnect.addActionListener( 
                 new ActionListener() {
                     public void actionPerformed(ActionEvent ae) {
@@ -150,8 +151,8 @@ public class ManagerView extends JFrame {
                                     sc = new ServerConnector(ManagerView.this);                                
                                     controller = sc.startCommander(ViewVariable.hash);
                                     menuCom.setEnabled(true);
-									bConnect.setEnabled(false);
-									bDisconnect.setEnabled(true);
+                                    bConnect.setEnabled(false);
+                                    bDisconnect.setEnabled(true);
                                 }
                             } catch (lab.exception.ConnectException e) {
                                 sc = null;
@@ -165,8 +166,8 @@ public class ManagerView extends JFrame {
             menuConection.add(bConnect);
             bDisconnect.addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent ev ) {
-                    notifyDisconnect();
-					bDisconnect.setEnabled(false);
+                    notifyDisconnect(null,null);
+                    bDisconnect.setEnabled(false);
                 }
             });
             bDisconnect.setToolTipText("Disconnect from the server");
@@ -322,114 +323,114 @@ public class ManagerView extends JFrame {
     */
     private void optionProgram() {
         try{
-			final JDialog optionD = new JDialog(this,true);
-			optionD.setTitle("Option");
-			optionD.setSize(255, 125);
-			Box b = Box.createVerticalBox();
-			Box bIP = Box.createHorizontalBox();
-			Box b1 = Box.createHorizontalBox();
-			Box b2 = Box.createHorizontalBox();
-			optionD.add(b);
-			final JCheckBox check = new JCheckBox("Autorun program");
-			
-				MaskFormatter form = new MaskFormatter("###.###.###.###");
-				MaskFormatter formP = new MaskFormatter("####");
-				JLabel lIP = new JLabel("IP");
-				JLabel lPort = new JLabel("Port:");
-				form.setPlaceholderCharacter('0');
-				final JFormattedTextField ip = new JFormattedTextField(form);
-				final JFormattedTextField port = new JFormattedTextField(formP);
-				ip.setMaximumSize(new Dimension(100,30));
-				ip.setMinimumSize(new Dimension(100,30));
-				ip.setValue(ViewVariable.ip);
-				port.setValue(ViewVariable.port.toString());
-				bIP.add(lIP);
-				bIP.add(ip);
-				bIP.add(lPort);
-				bIP.add(port);
-				b.add(bIP);
-			
-			check.setSelected(ViewVariable.autoRun);
-			check.setToolTipText("Set, if you want to run executable program automaticly in the task.");        
-			JLabel l = new JLabel("Put off time:");
-			JLabel m = new JLabel("Minits");
-			final JTextField min = new JTextField();
-			min.setText(ViewVariable.offTime+"");
-			final JComboBox list = new JComboBox();
-			list.addItem("0.5");
-			list.addItem("1");
-			list.addItem("2");
-			list.addItem("5");
-			list.addItem("6");
-			list.addItem("10");
-			list.addItem("12");
-			list.addItem("15");
-			list.addItem("24");
-			JLabel h = new JLabel("H");
-			list.addActionListener(
-				new ActionListener() {
-					public void actionPerformed(ActionEvent e) { 
-						Double d = Double.parseDouble((String) list.getSelectedItem())*60.;
-						Integer i = d.intValue();
-						min.setText(i.toString());
-					}
-				}
-			);
-			JButton bOk = new JButton("Ok");
-			bOk.addActionListener(
-				new ActionListener() {
-					public void actionPerformed(ActionEvent e) {                
-							ViewVariable.autoRun = check.isSelected();
-							ViewVariable.H = getSize().height;
-							ViewVariable.W = getSize().width;
-							try {
-								ViewVariable.ip = ipValidator((String)ip.getValue());
-							} catch (BadIPException e4) {
-								JOptionPane.showMessageDialog(ManagerView.this,"IP wrong","ERROR",JOptionPane.ERROR_MESSAGE);
-								return;
-							}
-							ViewVariable.port = Integer.parseInt((String)port.getValue());
-						try {
-							ViewVariable.offTime = Integer.parseInt(min.getText());
-						} catch (NumberFormatException e3) {
-							return;
-						}
-						optionD.dispose();
-					}
-				}
-			);
-			JButton bCancel = new JButton("Cancel");
-			bCancel.addActionListener(
-				new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						optionD.dispose();
-					}
-				}
-			);
-			b1.add(l);
-			b1.add(Box.createGlue());
-			b1.add(min);
-			b1.add(m);
-			b1.add(list);
-			b1.add(h);
-			b.add(b1);
-			b.add(check);
-			b.add(b2);        
-			b2.add(bOk);
-			b2.add(Box.createGlue());
-			b2.add(bCancel);
-			optionD.setResizable(false);        
-			optionD.setVisible(true);
+            final JDialog optionD = new JDialog(this,true);
+            optionD.setTitle("Option");
+            optionD.setSize(255, 125);
+            Box b = Box.createVerticalBox();
+            Box bIP = Box.createHorizontalBox();
+            Box b1 = Box.createHorizontalBox();
+            Box b2 = Box.createHorizontalBox();
+            optionD.add(b);
+            final JCheckBox check = new JCheckBox("Autorun program");
+            
+                MaskFormatter form = new MaskFormatter("###.###.###.###");
+                MaskFormatter formP = new MaskFormatter("####");
+                JLabel lIP = new JLabel("IP");
+                JLabel lPort = new JLabel("Port:");
+                form.setPlaceholderCharacter('0');
+                final JFormattedTextField ip = new JFormattedTextField(form);
+                final JFormattedTextField port = new JFormattedTextField(formP);
+                ip.setMaximumSize(new Dimension(100,30));
+                ip.setMinimumSize(new Dimension(100,30));
+                ip.setValue(ViewVariable.ip);
+                port.setValue(ViewVariable.port.toString());
+                bIP.add(lIP);
+                bIP.add(ip);
+                bIP.add(lPort);
+                bIP.add(port);
+                b.add(bIP);
+            
+            check.setSelected(ViewVariable.autoRun);
+            check.setToolTipText("Set, if you want to run executable program automaticly in the task.");        
+            JLabel l = new JLabel("Put off time:");
+            JLabel m = new JLabel("Minits");
+            final JTextField min = new JTextField();
+            min.setText(ViewVariable.offTime+"");
+            final JComboBox list = new JComboBox();
+            list.addItem("0.5");
+            list.addItem("1");
+            list.addItem("2");
+            list.addItem("5");
+            list.addItem("6");
+            list.addItem("10");
+            list.addItem("12");
+            list.addItem("15");
+            list.addItem("24");
+            JLabel h = new JLabel("H");
+            list.addActionListener(
+                new ActionListener() {
+                    public void actionPerformed(ActionEvent e) { 
+                        Double d = Double.parseDouble((String) list.getSelectedItem())*60.;
+                        Integer i = d.intValue();
+                        min.setText(i.toString());
+                    }
+                }
+            );
+            JButton bOk = new JButton("Ok");
+            bOk.addActionListener(
+                new ActionListener() {
+                    public void actionPerformed(ActionEvent e) {                
+                            ViewVariable.autoRun = check.isSelected();
+                            ViewVariable.H = getSize().height;
+                            ViewVariable.W = getSize().width;
+                            try {
+                                ViewVariable.ip = ipValidator((String)ip.getValue());
+                            } catch (BadIPException e4) {
+                                JOptionPane.showMessageDialog(ManagerView.this,"IP wrong","ERROR",JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+                            ViewVariable.port = Integer.parseInt((String)port.getValue());
+                        try {
+                            ViewVariable.offTime = Integer.parseInt(min.getText());
+                        } catch (NumberFormatException e3) {
+                            return;
+                        }
+                        optionD.dispose();
+                    }
+                }
+            );
+            JButton bCancel = new JButton("Cancel");
+            bCancel.addActionListener(
+                new ActionListener() {
+                    public void actionPerformed(ActionEvent e) {
+                        optionD.dispose();
+                    }
+                }
+            );
+            b1.add(l);
+            b1.add(Box.createGlue());
+            b1.add(min);
+            b1.add(m);
+            b1.add(list);
+            b1.add(h);
+            b.add(b1);
+            b.add(check);
+            b.add(b2);        
+            b2.add(bOk);
+            b2.add(Box.createGlue());
+            b2.add(bCancel);
+            optionD.setResizable(false);        
+            optionD.setVisible(true);
         } catch (ParseException e) {
-			log.warn(e);
+            log.warn(e);
         }
     }
-	/**
-	* Valids ip.
-	* @param ips ip addres.
-	* @return change ip.
-	* @throws BadIPException if ip is wrong.
-	*/
+    /**
+    * Valids ip.
+    * @param ips ip addres.
+    * @return change ip.
+    * @throws BadIPException if ip is wrong.
+    */
     private String ipValidator(String ips) throws BadIPException {
         String zero = "0";
         StringTokenizer st = new StringTokenizer(ips,".");
@@ -544,15 +545,19 @@ public class ManagerView extends JFrame {
             updateTable();
         }
     }
-	/**
-	* Client disconnects. 
-	*/
-    public void notifyDisconnect() {
+    /**
+    * Client disconnects. 
+    */
+    public void notifyDisconnect(String msg, String com) {
+        if (msg != null && com != null) {
+            JOptionPane.showMessageDialog(this,msg,com,JOptionPane.ERROR_MESSAGE);
+        }
         table.setModel(new TableModel(new Hashtable<Long,TaskInfo>()));                        
         menuCom.setEnabled(false);
-		bConnect.setEnabled(true);
-		if (getAll && (sc != null)) {
-            sc.stopCommander();
+        bConnect.setEnabled(true);
+        bDisconnect.setEnabled(false);
+        if (getAll && (sc != null)) {
+            sc.stop();
         }
         sc = null;
         if (nf != null) {

@@ -87,14 +87,14 @@ import lab.*;
 public class XMLUtil {
     private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(XMLUtil.class);
     /**
-	* Create xml packager.
-	* @param com it's command id. Can be : “getAll”, “sendAll”,  “disconnect”, “add”, ”edit”, “remove”, 
+    * Create xml packager.
+    * @param com it's command id. Can be : “getAll”, “sendAll”,  “disconnect”, “add”, ”edit”, “remove”, 
     * “error”.
-	* @param usrID it's user identifier, generate on the server.
-	* @param hash it's username and password string. 
-	* @param msg can keeps some information.
-	* @param ts1 it's task that keep in the packege, can be null.
-	* @param tasks if we transfers some tasks we writes they into this Hashtable, can be null;
+    * @param usrID it's user identifier, generate on the server.
+    * @param hash it's username and password string. 
+    * @param msg can keeps some information.
+    * @param ts1 it's task that keep in the packege, can be null.
+    * @param tasks if we transfers some tasks we writes they into this Hashtable, can be null;
     * @return xml string.
     */
     public static String packager(String com,long usrID,String hash,String msg, TaskInfo ts1, Hashtable<Long,TaskInfo> tasks) {
@@ -167,11 +167,11 @@ public class XMLUtil {
         log.info("packager :" + xml);
         return xml;
     }
-	/**
-	* Parsed xml package.
-	* @param xml it's xml package.
-	* @return ParsedInfo container.
-	*/
+    /**
+    * Parsed xml package.
+    * @param xml it's xml package.
+    * @return ParsedInfo container.
+    */
     public static ParsedInfo parser (String xml) {
         ParsedInfo pInfo = new ParsedInfo();
         Document doc = null;

@@ -47,5 +47,5 @@ public interface ManagerWriter {
 	* @return user identifier.
     * @throws DataAccessException if we can't have access to Data Base.
 	*/
-    public int connectNewUser(String user, String pass)  throws DataAccessException ;
+    public int connectNewUser(String user, String pass)  throws DataAccessException, UserAuthFailedException;
 }

@@ -58,7 +58,7 @@ public class SQLiteBridge implements Bridge{
 	* @param pass user password.	
     * @throws DataAccessException if we can't have access to Data Base.
 	*/
-    public void addNewUser(String user, String pass) throws DataAccessException{
+    public void addNewUser(String user, String pass) throws DataAccessException, UserAuthFailedException {
         StringBuffer sb = new StringBuffer("BEGIN TRANSACTION;INSERT INTO user(name,pass) VALUES('");
         sb.append(escapeString(user));
         sb.append("','");
@@ -74,10 +74,15 @@ public class SQLiteBridge implements Bridge{
                     return -1;
                 }
             });
+            
         }
         if (job.complete() == null) {
-            log.error("user " + user +job.getError());
-            throw new DataAccessException("Add user Error user "+ user,job.getError());
+            log.error("user " + user +job.getError().getMessage());
+            if ("[19] DB[1] exec() column name is not unique".equals(job.getError().getMessage())) {
+                throw new UserAuthFailedException("Add user Error user "+ user,job.getError());
+            } else {
+                throw new DataAccessException("error "+ user,job.getError());
+            }
         }
         if (log.isInfoEnabled()) {
             log.info("DataBase, add user " + user );
@@ -131,13 +136,12 @@ public class SQLiteBridge implements Bridge{
      * @throws DataAccessException if we can't have access to Data Base.
      */
     public void removeAll() throws DataAccessException{
-        final String command  = "BEGIN TRANSACTION;DELETE * FROM tasks;COMMIT;";
         SQLiteJob<Integer> job = null;
         synchronized (queue) {
             job = queue.execute(new SQLiteJob<Integer>() {
                 protected Integer job(SQLiteConnection connection) 
                     throws SQLiteException {
-                        connection.exec(command);
+                        connection.exec("BEGIN TRANSACTION;DELETE * FROM tasks;COMMIT;");
                     return -1;
                 }
             });
@@ -188,17 +192,13 @@ public class SQLiteBridge implements Bridge{
     * @throws DataAccessException if we can't have access to Data Base.
     */
     public TaskInfo getTask(final long id ,final int uid) throws DataAccessException{
-        StringBuffer sb = new StringBuffer("SELECT * FROM tasks WHERE id = ");
-        sb.append(id);
-        sb.append(" AND uid = ");
-        sb.append(uid);
-        sb.append(";COMMIT;");
-        final String command = sb.toString();
         SQLiteJob<TaskInfo> job = null;
         synchronized (queue) {
             job = queue.execute(new SQLiteJob<TaskInfo>() {
                 protected TaskInfo job(SQLiteConnection connection) throws SQLiteException {
-                    SQLiteStatement st = connection.prepare(command);
+                    SQLiteStatement st = connection.prepare("SELECT * FROM tasks WHERE id = ? AND uid = ?");
+                    st.bind(1,id);
+                    st.bind(2,uid);
                     try {
                         if (!st.step()) {
                             st.dispose();
@@ -243,15 +243,12 @@ public class SQLiteBridge implements Bridge{
     * @throws DataAccessException if we can't have access to Data Base.
     */
     public Hashtable<Long,TaskInfo> getAll(final int uid) throws DataAccessException {
-        StringBuffer sb = new StringBuffer("SELECT * FROM tasks WHERE uid = ");
-        sb.append(uid);
-        sb.append(";COMMIT;");
-        final String command = sb.toString();
         SQLiteJob<Hashtable<Long,TaskInfo>> job = null;
         synchronized (queue) {    
             job =  queue.execute(new SQLiteJob<Hashtable<Long,TaskInfo>>() {
                 protected Hashtable<Long,TaskInfo> job(SQLiteConnection connection) throws SQLiteException {
-                    SQLiteStatement st = connection.prepare(command);
+                    SQLiteStatement st = connection.prepare("SELECT * FROM tasks WHERE uid = ?;");
+                    st.bind(1,uid);
                     try {
                         Hashtable<Long,TaskInfo> h = new Hashtable<Long,TaskInfo>();
                         while (st.step()) { 
@@ -340,7 +337,9 @@ public class SQLiteBridge implements Bridge{
         synchronized (queue) {    
             job =  queue.execute(new SQLiteJob<Integer>() {
                 protected Integer job(SQLiteConnection connection) throws SQLiteException {
-                    SQLiteStatement st = connection.prepare("SELECT * FROM user WHERE user.name = \""+ userName +"\" AND pass = \""+ pass +"\"");
+                    SQLiteStatement st = connection.prepare("SELECT * FROM user WHERE user.name = ? AND pass = ?");
+                    st.bind(1,userName);
+                    st.bind(2,pass);
                     Integer uid = -1;
                     try {
                         while (st.step()) {

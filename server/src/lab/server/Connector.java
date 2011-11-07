@@ -1,9 +1,10 @@
 package lab.server;
-import java.util.*;
+import java.util.concurrent.*;
 import lab.exception.*;
 import java.net.*;
 import java.io.*;
 import lab.server.model.*;
+import java.util.*;
 /**
 * Adds and removes new user.
 */
@@ -14,7 +15,7 @@ public class Connector implements Runnable {
 	private ManagerWriter model = null;
 	private Cleaner cl = null;
 	private Thread t2 = null;
-	public Hashtable<Integer, UserConnector> userlist = new Hashtable<Integer, UserConnector>();	
+	public ConcurrentHashMap<Integer, UserConnector> userlist = new ConcurrentHashMap<Integer, UserConnector>();	
 	/**
 	* Remove disconnected user.
 	*/
@@ -22,7 +23,6 @@ public class Connector implements Runnable {
 		private Thread t1 = null;
 		public boolean run = true;
 		public boolean inClear = false;
-		boolean stop = false;
 		public Cleaner() {
 			t1 = new Thread(this);
 			t1.setDaemon(true);
@@ -30,54 +30,24 @@ public class Connector implements Runnable {
 		}
 		public void run() {
 			while(run) {
+				Thread.yield();
 				clear();
-				try {
-						t1.sleep(3000);
-					} catch (InterruptedException e)  {
-						log.error(e);
-					}
-				}
-			stop = true;
+			}			
 		}
 		/**
 		* Remove disconnected user.
 		*/
-		public void clear() {	
-			if(inClear) { 
-				return;
-			}
-			inClear = true;
-			try {
-				synchronized (userlist) {			
-					Collection<UserConnector> col = userlist.values();
-					synchronized (col) {
-						for	(UserConnector con: col) {
-							synchronized (con) {
-								if(con.isStoped()) {
-									if (log.isInfoEnabled()) {
-										log.info("cleaner ...");
-									}
-									col.remove(con);
-								}
-							}
-						}
+		public synchronized void clear() {	
+			Collection<UserConnector> col = userlist.values();
+			for	(UserConnector con: col) {
+				if(con.isStoped()) {
+					if (log.isInfoEnabled()) {
+						log.info("cleaner ...");
 					}
-				}
-			} catch (ConcurrentModificationException e) {
-				log.warn(e);
-			}
-			inClear = false;
-		}
-		/**
-		* show stop cleaner or not.
-		*/
-		public boolean isStoped() {
-			if (stop) {
-				t1 = null;
-			}
-			return stop;
-		}
-		
+					col.remove(con);
+				}							
+            }
+		}		
 	}
 	/**
 	* Connect new user.
@@ -95,42 +65,41 @@ public class Connector implements Runnable {
             model = new ManagerModel();
 			int i = 1;
 			while (true) {
-				try {
-					t2.sleep(100);
-				} catch (InterruptedException e)  {
-					log.error(e);
-				}
+				Thread.yield();
 				Socket soc = s.accept();
 				soc.setSoTimeout(10000);
 				if (log.isInfoEnabled()){
 					log.info(i+ " connected user : "+ soc.getPort());
 				}
 				UserConnector uc = new UserConnector(soc,model);
-				synchronized (userlist) {
-					userlist.put(i,uc);
-				}
-				i++;
+				userlist.put(i,uc);
+                i++;
 			}
+        } catch (SocketException e2) {
+            log.info(e2.getMessage());
 		} catch (IOException e) {
 			log.error(e);
 		} catch (DataAccessException e1) {
 			log.error(e1);
-		}
+        }
 	}
 	/**
 	* Stop all user and stop cleaner after.
 	* @param msg message thet will be send all user befor disconnect.
 	*/
 	public void stop(String msg) {
+        cl.run = false;
 		Collection<UserConnector> col = userlist.values();
 		for (UserConnector uc : col) {
 			uc.stop(msg);
 		}
-		cl.run = false;
-		while (userlist.size() != 0) {
-			if(cl.isStoped()) {
-				cl.clear();
-			}
+		userlist.clear();
+		try {
+            if (!s.isClosed()) {
+                s.close();
+            }
+		} catch (IOException e) {
+			log.warn(e.getMessage());
 		}
 		if (log.isInfoEnabled()) {
 			log.info("cleaner stop");

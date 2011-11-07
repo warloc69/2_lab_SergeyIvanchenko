@@ -20,7 +20,7 @@ public class ServerGUI extends AppenderSkeleton {
         public static final long serialVersionUID = 123312452l;		
 		private Connector con = null;
 		public GUI () {
-            super();
+            super("Server");
 			setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             showGUI();
         }
@@ -67,7 +67,8 @@ public class ServerGUI extends AppenderSkeleton {
 								log.info(s);
 							}
 							con = null;
-							System.exit(0);
+							stopServer.setEnabled(false);
+							startServer.setEnabled(true);
 						}
 					}
 				);

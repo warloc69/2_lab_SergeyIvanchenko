@@ -19,7 +19,7 @@ public interface Bridge {
 	* @param pass user password.	
     * @throws DataAccessException if we can't have access to Data Base.
 	*/
-	public void addNewUser(String user, String pass) throws DataAccessException;
+	public void addNewUser(String user, String pass) throws DataAccessException, UserAuthFailedException;
     /**
      * Add task
 	 * @param task reference on the add task.
