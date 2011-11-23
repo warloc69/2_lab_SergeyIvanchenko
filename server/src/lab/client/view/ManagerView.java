@@ -149,7 +149,7 @@ public class ManagerView extends JFrame {
                            try { 
                                if (sc == null) {                                      
                                     sc = new ServerConnector(ManagerView.this);                                
-                                    controller = sc.startCommander(ViewVariable.hash);
+                                    controller = sc.startCommander();
                                     menuCom.setEnabled(true);
                                     bConnect.setEnabled(false);
                                     bDisconnect.setEnabled(true);
@@ -481,7 +481,8 @@ public class ManagerView extends JFrame {
                 JOptionPane.showMessageDialog(ManagerView.this,"IP wrong","ERROR",JOptionPane.ERROR_MESSAGE);
             }
             ViewVariable.port = in.readInt();
-            ViewVariable.hash = in.readUTF();
+            ViewVariable.userName = in.readUTF();
+            ViewVariable.hashPass = in.readUTF();
         } catch (IOException e) {
             log.error("IO Exception, read option");
         }
@@ -508,7 +509,9 @@ public class ManagerView extends JFrame {
             out.flush();
             out.writeInt(ViewVariable.port);
             out.flush();
-            out.writeUTF(ViewVariable.hash);
+            out.writeUTF(ViewVariable.userName);
+            out.flush();
+            out.writeUTF(ViewVariable.hashPass);
             out.flush();
             out.close();
         } catch (IOException e1){

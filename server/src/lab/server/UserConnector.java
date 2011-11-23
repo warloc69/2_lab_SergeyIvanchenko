@@ -35,7 +35,7 @@ public class UserConnector implements Runnable {
                 soc.getOutputStream(),true);
             ParsedInfo pInfo = XMLUtil.parser(in.readLine()); 
             uid = model.connectNewUser(pInfo.getUserName(),pInfo.getUserPass());
-            String s = XMLUtil.packager("sendAll",uid,pInfo.getUserName()+"|"+pInfo.getUserPass()," ",null,model.getAllTasks(uid));
+            String s = XMLUtil.packager("sendAll",uid,pInfo.getUserName(),pInfo.getUserPass(),null,null,model.getAllTasks(uid));
             if (log.isInfoEnabled()) {
                 log.info(s);
             }
@@ -53,11 +53,11 @@ public class UserConnector implements Runnable {
                 if (line != null) {
                     ParsedInfo pInfo1 = XMLUtil.parser(line);
                     if (uid != pInfo1.getUserID()) {
-                        out.println(XMLUtil.packager("error",uid,"warning|warning","User ID is wrong. You was disconnected.",null,null));
+                        out.println(XMLUtil.packager("error",uid,null,null,"User ID is wrong. You was disconnected.",null,null));
                         break;
                     }
                     if ("remove".equals(pInfo1.getCommand())) {
-                            model.removeTask(Long.parseLong(pInfo1.getMessage()),pInfo1.getUserID()); 
+                            model.removeTask(pInfo1.getTask().getID(),pInfo1.getUserID()); 
                             out.println(line); 
                             continue;
                     }
@@ -66,7 +66,7 @@ public class UserConnector implements Runnable {
                     }
                     if ("add".equals(pInfo1.getCommand())) {
                         TaskInfo task = model.addTask(pInfo1.getTask(),pInfo1.getUserID());                                
-                        out.println(XMLUtil.packager("add",uid,pInfo.getUserName()+"|"+pInfo.getUserPass()," ",task,null));
+                        out.println(XMLUtil.packager("add",uid,pInfo.getUserName(),pInfo.getUserPass(),null,task,null));
                         continue;
                     }
                     if ("edit".equals(pInfo1.getCommand())) {
@@ -77,15 +77,15 @@ public class UserConnector implements Runnable {
                 }
             }
         } catch (UserAuthFailedException e) {
-            out.println(XMLUtil.packager("error",uid,"warning|warning","name or password is wrong",null,null));
+            out.println(XMLUtil.packager("error",uid,null,null,"name or password is wrong",null,null));
         } catch (DataAccessException e) {
-            out.println(XMLUtil.packager("error",uid,"error|error","error",null,null));
+            out.println(XMLUtil.packager("error",uid,null,null,"Server error",null,null));
         } catch (IOException e1) {
             log.error(e1);
         } finally {
             try {
                 if(!"".equals(exitMsg)) {
-                    out.println(XMLUtil.packager("disconnect",0,"good|by","Server stoped. " + exitMsg,null,null));
+                    out.println(XMLUtil.packager("disconnect",0,null,null,"Server stoped. " + exitMsg,null,null));
                 }
                 if ( in != null) {
                     in.close();

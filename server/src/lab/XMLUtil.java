@@ -97,7 +97,7 @@ public class XMLUtil {
     * @param tasks if we transfers some tasks we writes they into this Hashtable, can be null;
     * @return xml string.
     */
-    public static String packager(String com,long usrID,String hash,String msg, TaskInfo ts1, Hashtable<Long,TaskInfo> tasks) {
+    public static String packager(String com,long usrID,String userName,String hashPass, String msg, TaskInfo ts1, Hashtable<Long,TaskInfo> tasks) {
         String xml = null;
         Integer size = 0;
         Collection<TaskInfo> col = null;
@@ -110,58 +110,73 @@ public class XMLUtil {
             size = tasks.size();
             col = tasks.values();
         }
-        if ("remove".equals(com) ) {
-            size = 0;
-        }
         StringBuffer sb = new StringBuffer();
         sb.append("<" +ProtocolConst.rootTeg+ ">");
         sb.append("<" +ProtocolConst.com+ ">");
         sb.append(com);
         sb.append("</" +ProtocolConst.com+ ">");
-        sb.append("<authInfo usrID=\"" + usrID);
-        sb.append("\" hash=\""+hash);
-        sb.append("\"/>");
-        sb.append("<" +ProtocolConst.msg+ ">");
-        sb.append(msg);
-        sb.append("</" +ProtocolConst.msg+ ">");
-        sb.append("<" +ProtocolConst.list+ ">");
-        sb.append("<" +ProtocolConst.listSize+ ">");
-        sb.append(size);
-        sb.append("</" +ProtocolConst.listSize+ ">");
-        if (size != 0) {
-            for (TaskInfo ts: col) {
-                sb.append("<" +ProtocolConst.listElement+ ">");
-                sb.append("<"+ProtocolConst.elementID+">");
-                sb.append(ts.getID());
-                sb.append("</"+ProtocolConst.elementID+">");
-                sb.append("<"+ProtocolConst.elementName+">");
-                if (!ts.getName().equals("")) {
-                    sb.append(ts.getName());
-                } else { 
-                    sb.append(" ");
-                }
-                sb.append("</"+ProtocolConst.elementName+">");
-                sb.append("<"+ProtocolConst.elementInfo+">");
-                if (!ts.getInfo().equals("")) {
-                    sb.append(ts.getInfo());
-                } else { 
-                    sb.append(" ");
-                }
-                sb.append("</"+ProtocolConst.elementInfo+">");
-                sb.append("<"+ProtocolConst.runProgram+">");
-                if ( ts.getExec() != null && !ts.getExec().getPath().equals(" ")) {
-                    sb.append(ts.getExec().getPath());
-                } else {
-                    sb.append(" ");
-                }
-                sb.append("</"+ProtocolConst.runProgram+">");
-                sb.append("<"+ProtocolConst.elementDate+">");
-                sb.append(ts.getDate().getTime());
-                sb.append("</"+ProtocolConst.elementDate+">");
-                sb.append("</" +ProtocolConst.listElement+ ">");
-            }
+        if (userName != null && hashPass != null) {
+            sb.append("<authInfo usrID=\"" + usrID);
+            sb.append("\" userName=\""+ userName);
+            sb.append("\" hashPass=\""+hashPass+"\"/>");
+        } else {
+            sb.append("<authInfo usrID=\"" + usrID);
+            sb.append("\" userName=\" ");
+            sb.append("\" hashPass=\" \"/>");
         }
-        sb.append("</" +ProtocolConst.list+ ">");
+        if (("disconnect" .equals(com)&& (msg != null)) || "error".equals(com)) {
+            sb.append("<" +ProtocolConst.msg+ ">");
+            sb.append(msg);
+            sb.append("</" +ProtocolConst.msg+ ">");
+        } else { 
+            sb.append("<" +ProtocolConst.msg+ "/>");
+        }
+        if ("sendAll" .equals(com) || "remove".equals(com) || "add".equals(com) || "edit".equals(com)) { 
+            sb.append("<" +ProtocolConst.list+ ">");
+            sb.append("<" +ProtocolConst.listSize+ ">");
+            sb.append(size);
+            sb.append("</" +ProtocolConst.listSize+ ">");
+            if (size != 0) {
+                for (TaskInfo ts: col) {
+                    sb.append("<" +ProtocolConst.listElement+ ">");
+                    sb.append("<"+ProtocolConst.elementID+">");
+                    sb.append(ts.getID());
+                    sb.append("</"+ProtocolConst.elementID+">");
+                    if (!ts.getName().equals(" ")) {
+                        sb.append("<"+ProtocolConst.elementName+">");
+                        sb.append(ts.getName());
+                        sb.append("</"+ProtocolConst.elementName+">");
+                     } else { 
+                        sb.append("<"+ProtocolConst.elementName+"/>");
+                    }
+                    if (!ts.getInfo().equals(" ")) {
+                        sb.append("<"+ProtocolConst.elementInfo+">");
+                        sb.append(ts.getInfo());
+                        sb.append("</"+ProtocolConst.elementInfo+">");
+                    } else { 
+                        sb.append("<"+ProtocolConst.elementInfo+"/>");
+                    }
+                    if ( ts.getExec() != null && !ts.getExec().getPath().equals(" ")) {
+                        sb.append("<"+ProtocolConst.runProgram+">");                    
+                        sb.append(ts.getExec().getPath());                    
+                        sb.append("</"+ProtocolConst.runProgram+">");
+                    } else {
+                        sb.append("<"+ProtocolConst.runProgram+"/>");
+                    }
+                    if (!"remove" .equals(com)) { 
+                        sb.append("<"+ProtocolConst.elementDate+">");                    
+                        sb.append(ts.getDate().getTime());
+                        sb.append("</"+ProtocolConst.elementDate+">");
+                    } else { 
+                         sb.append("<"+ProtocolConst.elementDate+"/>");
+                    }
+                    sb.append("</" +ProtocolConst.listElement+ ">");
+                }
+            }
+            sb.append("</" +ProtocolConst.list+ ">");
+        } else {
+            sb.append("<" +ProtocolConst.list+ "/>");
+        }
         sb.append("</" +ProtocolConst.rootTeg+ ">");
         xml = sb.toString();
         log.info("packager :" + xml);
@@ -196,14 +211,15 @@ public class XMLUtil {
                     }
                     if (ch1.getTagName().equals(ProtocolConst.msg)) {
                         Text textNode1 = (Text)ch1.getFirstChild();
-                        String text1 = textNode1.getData().trim();
-                        pInfo.setMessage(text1);
+                        if (textNode1 != null) {
+                            String text1 = textNode1.getData().trim();
+                            pInfo.setMessage(text1);
+                        }
                     }
                     if (ch1.getTagName().equals("authInfo")) {
-                       pInfo.setUserID(Integer.parseInt(ch1.getAttribute("usrID")));
-                       StringTokenizer st = new StringTokenizer(ch1.getAttribute("hash"),"|");
-                        pInfo.setUserName(st.nextToken());
-                        pInfo.setUserPass(st.nextToken());
+                        pInfo.setUserID(Integer.parseInt(ch1.getAttribute("usrID")));
+                        pInfo.setUserName(ch1.getAttribute("userName"));
+                        pInfo.setUserPass(ch1.getAttribute("hashPass"));
                     }
                     if (ch1.getTagName().equals(ProtocolConst.list)) {
                         NodeList tchildren = ch1.getChildNodes();                
@@ -231,31 +247,33 @@ public class XMLUtil {
                                         
                                         if (taskNodeElement.getTagName().equals(ProtocolConst.elementName)) {
                                             Text textNode = (Text)taskNodeElement.getFirstChild();
-                                            String text = textNode.getData().trim();
-                                            task.setName(text);
+                                            if (textNode != null) {
+                                                String text = textNode.getData().trim();
+                                                task.setName(text);
+                                            }
                                         }
-                                        try {
                                             if (taskNodeElement.getTagName().equals(ProtocolConst.elementInfo)) {
                                                 Text textNode = (Text)taskNodeElement.getFirstChild();
-                                                String text = textNode.getData().trim();
-                                                task.setInfo(text);
+                                                if (textNode != null) {
+                                                    String text = textNode.getData().trim();
+                                                    task.setInfo(text);
+                                                }
                                             }
-                                        } catch (NullPointerException e) {
-                                            task.setInfo(" ");
-                                        }
-                                        try {
                                             if (taskNodeElement.getTagName().equals(ProtocolConst.runProgram)) {
                                                 Text textNode = (Text)taskNodeElement.getFirstChild();
-                                                String text = textNode.getData().trim();
-                                                task.setExec(new File(text));
+                                                if (textNode != null) {
+                                                    String text = textNode.getData().trim();
+                                                    task.setExec(new File(text));
+                                                } else {
+                                                    task.setExec(new File(" "));
+                                                }
                                             }
-                                        } catch (NullPointerException e) {
-                                            task.setExec(new File(" "));
-                                        }
                                         if (taskNodeElement.getTagName().equals(ProtocolConst.elementDate)) {
                                             Text textNode = (Text)taskNodeElement.getFirstChild();
-                                            String text = textNode.getData().trim();
-                                            task.setDate(new Date(Long.parseLong(text)));
+                                            if (textNode != null) {
+                                                String text = textNode.getData().trim();
+                                                task.setDate(new Date(Long.parseLong(text)));
+                                            }
                                         }
                                     }
                                 }

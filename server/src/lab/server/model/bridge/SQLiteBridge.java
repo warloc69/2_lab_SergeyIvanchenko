@@ -58,7 +58,7 @@ public class SQLiteBridge implements Bridge{
 	* @param pass user password.	
     * @throws DataAccessException if we can't have access to Data Base.
 	*/
-    public void addNewUser(String user, String pass) throws DataAccessException, UserAuthFailedException {
+    public void addNewUser(String user, String pass) throws DataAccessException {
         StringBuffer sb = new StringBuffer("BEGIN TRANSACTION;INSERT INTO user(name,pass) VALUES('");
         sb.append(escapeString(user));
         sb.append("','");
@@ -78,11 +78,7 @@ public class SQLiteBridge implements Bridge{
         }
         if (job.complete() == null) {
             log.error("user " + user +job.getError().getMessage());
-            if ("[19] DB[1] exec() column name is not unique".equals(job.getError().getMessage())) {
-                throw new UserAuthFailedException("Add user Error user "+ user,job.getError());
-            } else {
-                throw new DataAccessException("error "+ user,job.getError());
-            }
+            throw new DataAccessException("error "+ user,job.getError());
         }
         if (log.isInfoEnabled()) {
             log.info("DataBase, add user " + user );
@@ -332,22 +328,25 @@ public class SQLiteBridge implements Bridge{
 	* @param pass user password.
 	* @throws DataAccessException if we can't have access to Data Base.
 	*/
-    public Integer getUID(final String userName, final String pass) throws DataAccessException {
+    public Integer getUID(final String userName, final String pass) throws DataAccessException, UserAuthFailedException {
         SQLiteJob<Integer> job = null;
         synchronized (queue) {    
             job =  queue.execute(new SQLiteJob<Integer>() {
-                protected Integer job(SQLiteConnection connection) throws SQLiteException {
-                    SQLiteStatement st = connection.prepare("SELECT * FROM user WHERE user.name = ? AND pass = ?");
-                    st.bind(1,userName);
-                    st.bind(2,pass);
-                    Integer uid = -1;
+                protected Integer job(SQLiteConnection connection) throws SQLiteException {                    
+                    SQLiteStatement st = connection.prepare("SELECT uid FROM user WHERE user.name = ?");
                     try {
-                        while (st.step()) {
-                            if (st.hasRow()) {                                    
+                         Integer uid = -1; 
+                        st.bind(1,userName);
+                        st.step();
+                        if (st.hasRow()) {
+                            st = connection.prepare("SELECT uid FROM user WHERE user.name = ? and user.pass = ?");
+                            st.bind(1,userName);
+                            st.bind(2,pass);
+                            st.step();
+                            if (st.hasRow()) {
                                 uid = (Integer)st.columnValue(0);
                             } else {
-                                st.dispose();
-                                break;
+                                uid = -2;
                             }
                         }
                         return uid;
@@ -363,6 +362,10 @@ public class SQLiteBridge implements Bridge{
         }
         if (log.isInfoEnabled()) {
             log.info("DataBase, get UID");
+        }
+        if (job.complete() == -2) {
+            log.warn("User Authorisation error" + userName);
+            throw new UserAuthFailedException("User Authorisation error");
         }
         return job.complete();
     }

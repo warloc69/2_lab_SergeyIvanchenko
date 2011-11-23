@@ -28,7 +28,7 @@ public class ManagerModel implements  ManagerWriter {
 	* @param pass user password.	
     * @throws DataAccessException if we can't have access to Data Base.
 	*/
-    public int addNewUser(String user, String pass) throws DataAccessException, UserAuthFailedException {
+    public int addNewUser(String user, String pass) throws DataAccessException , UserAuthFailedException{
         synchronized (sqlBridge) {
             int uid = sqlBridge.getUID(user,pass);
             if (uid == -1) {

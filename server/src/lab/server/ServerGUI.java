@@ -62,7 +62,8 @@ public class ServerGUI extends AppenderSkeleton {
 							startServer.setEnabled(true);
 							String s = " ";
 							 s += JOptionPane.showInputDialog(GUI.this,"server kill","kill",JOptionPane.QUESTION_MESSAGE);
-							con.stop(s);
+                             con.setDisconMsg(s);
+                             con.stop();
 							if (log.isInfoEnabled()) {
 								log.info(s);
 							}

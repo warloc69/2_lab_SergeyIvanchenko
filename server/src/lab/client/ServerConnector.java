@@ -33,8 +33,8 @@ public class ServerConnector implements ManagerControllerInterface{
         private Stack<String> incomingCommands = new Stack<String>();    // queue incoming xml packages
         public boolean stop = true;
         public boolean stoped = false;
-        public Commander(String hash) throws lab.exception.ConnectException{
-            connect(hash);
+        public Commander() throws lab.exception.ConnectException{
+            connect();
             sender = new Sender();
             thread = new Thread(this);
             thread.setDaemon(true);
@@ -45,7 +45,7 @@ public class ServerConnector implements ManagerControllerInterface{
 		* @param hash user name and password String;
 		* @throws lab.exception.ConnectException if connetion is not complete.
 		*/
-        public void connect(String hash) throws lab.exception.ConnectException{
+        public void connect() throws lab.exception.ConnectException{
             try {
                 Socket s = new Socket(ViewVariable.ip,ViewVariable.port);
                 ServerConnector.this.s = s;
@@ -54,7 +54,7 @@ public class ServerConnector implements ManagerControllerInterface{
                     new InputStreamReader(is));
                 out = new PrintWriter (
                     s.getOutputStream(),true);
-                out.println(XMLUtil.packager("getAll",0,ViewVariable.hash,"msg", null, null));
+                out.println(XMLUtil.packager("getAll",0,ViewVariable.userName,ViewVariable.hashPass,null, null, null));
             } catch (IOException e) {
                try {
                    if (in != null) {
@@ -153,7 +153,7 @@ public class ServerConnector implements ManagerControllerInterface{
                             mv.notifyEdit(pars.getTask());
                         }
                         if ("remove".equals(com)) {
-                            mv.notifyRemove(Long.parseLong(pars.getMessage()));
+                            mv.notifyRemove(pars.getTask().getID());
                         }
                         if ("error".equals(com)) {
                             stop();                        
@@ -170,35 +170,15 @@ public class ServerConnector implements ManagerControllerInterface{
             }
             stop();
         }
-    /**
-    * validation task.
-    * @param task reference on the validation task.
-    * @throws BadTaskException if task is invalide.
-    */
-        private void taskValidation (TaskInfo task) throws BadTaskException {
-            if (task.getDate().before(new Date())) {
-                throw new BadTaskException("Date incorrect");
-            }
-            if (task.getExec() != null && !task.getExec().getName().equals(" ")) {
-                String file = task.getExec().getPath();
-                if (file.equals("")) {return;}
-                if(!file.regionMatches(true,file.length()-3,"exe",0,3)) {
-                    throw new BadTaskException("Chouse file incorrect file= "+ file);
-                }
-            }
-            if (task.getName().length() == 0) {
-                throw new BadTaskException("Name incorrect");
-            }
-        }
+    
         /**
          * Add task
          * @throws DataAccessException if we can't have access to Data Base.
          * @throws BadTaskException if task is invalide.
          * @param task reference on the add task.
          */
-        public void addTask(TaskInfo task) throws DataAccessException, BadTaskException {
-            taskValidation(task);
-            String s = XMLUtil.packager("add",ViewVariable.uid,ViewVariable.hash,ViewVariable.msg,task,null);
+        public void addTask(TaskInfo task) throws DataAccessException {
+            String s = XMLUtil.packager("add",ViewVariable.uid,ViewVariable.userName,ViewVariable.hashPass,null,task,null);
             synchronized (sendCommands) {
                 sendCommands.push(s);
                 sendCommands.notify();
@@ -211,7 +191,9 @@ public class ServerConnector implements ManagerControllerInterface{
          * @throws DataAccessException if we can't have access to Data Base.
          */
         public void delTask(long id) throws DataAccessException {
-            String s = XMLUtil.packager("remove",ViewVariable.uid,ViewVariable.hash,id+"",null,null);
+            TaskInfo ts = new TaskInfoImpl();
+            ts.setID(id);
+            String s = XMLUtil.packager("remove",ViewVariable.uid,ViewVariable.userName,ViewVariable.hashPass,null,ts,null);
             synchronized (sendCommands) {
                 sendCommands.push(s);
                 sendCommands.notify();
@@ -223,9 +205,8 @@ public class ServerConnector implements ManagerControllerInterface{
         * @throws BadTaskException if task is invalide.
         * @param task reference on the edit task.
         */
-        public void editTask(long id, TaskInfo task) throws DataAccessException, BadTaskException {
-            taskValidation(task);
-            String s = XMLUtil.packager("edit",ViewVariable.uid,ViewVariable.hash,ViewVariable.msg,task,null);
+        public void editTask(long id, TaskInfo task) throws DataAccessException {
+            String s = XMLUtil.packager("edit",ViewVariable.uid,ViewVariable.userName,ViewVariable.hashPass,null,task,null);
             synchronized (sendCommands) {
                 sendCommands.push(s);
                 sendCommands.notify();
@@ -237,7 +218,7 @@ public class ServerConnector implements ManagerControllerInterface{
         private void stop() {
             try {
                 if (out != null) {
-                    out.println(XMLUtil.packager("disconnect",ViewVariable.uid,ViewVariable.hash,"msg", null, null));
+                    out.println(XMLUtil.packager("disconnect",ViewVariable.uid,ViewVariable.userName,ViewVariable.hashPass,null, null, null));
                     in.close();
                     sender.stop();
                     while(!sender.isStoped()) {
@@ -270,8 +251,8 @@ public class ServerConnector implements ManagerControllerInterface{
 	* @param hash user name and password hash.
 	* @throws lab.exception.ConnectException if connetion is not complete.
 	*/
-    public ManagerControllerInterface startCommander(String hash) throws lab.exception.ConnectException{
-        com = new Commander(hash);
+    public ManagerControllerInterface startCommander() throws lab.exception.ConnectException{
+        com = new Commander();
         return this;
     }
 	/**
@@ -279,9 +260,6 @@ public class ServerConnector implements ManagerControllerInterface{
 	*/
     public void stop() {
         com.stop = false;
-      /*  while(!com.isStoped()) {
-        }
-        com = null;*/
     }
     /**
      * Add task
@@ -290,6 +268,7 @@ public class ServerConnector implements ManagerControllerInterface{
      * @throws BadTaskException if task is invalide.
      */
     public void addTask(TaskInfo task) throws DataAccessException, BadTaskException {
+        taskValidation(task);
         com.addTask(task);
     }
      /**
@@ -307,6 +286,27 @@ public class ServerConnector implements ManagerControllerInterface{
     * @param task reference on the edit task.
     */
     public void editTask(long id, TaskInfo task) throws DataAccessException, BadTaskException {
+        taskValidation(task);
         com.editTask(id,task);
     }
+    /**
+    * validation task.
+    * @param task reference on the validation task.
+    * @throws BadTaskException if task is invalide.
+    */
+        private void taskValidation (TaskInfo task) throws BadTaskException {
+            if (task.getDate().before(new Date())) {
+                throw new BadTaskException("Date incorrect");
+            }
+            if (task.getExec() != null && !task.getExec().getName().equals(" ")) {
+                String file = task.getExec().getPath();
+                if (file.equals("")) {return;}
+                if(!file.regionMatches(true,file.length()-3,"exe",0,3)) {
+                    throw new BadTaskException("Chouse file incorrect file= "+ file);
+                }
+            }
+            if (task.getName().length() == 0) {
+                throw new BadTaskException("Name incorrect");
+            }
+        }
 }

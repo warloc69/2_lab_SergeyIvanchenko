@@ -11,7 +11,8 @@ public class ViewVariable {
     public static final int comEdit = 1;
     public static final int comView = 2;
     public static int uid = 0;
-    public static String hash = "";
+    public static String userName = "";
+    public static String hashPass = "";
     public static String msg = "msg";
     public static String ip = "127.0.0.1";
     public static Integer port = 8189;

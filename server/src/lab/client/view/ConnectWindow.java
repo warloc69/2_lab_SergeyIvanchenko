@@ -42,11 +42,8 @@ public class ConnectWindow extends JDialog{
         final JTextField tPass = new JTextField();
         tPass.setMaximumSize(new Dimension(getSize().height,30));  
         tPass.setToolTipText("Writes password here");
-		if (!"".equals(ViewVariable.hash)){
-			StringTokenizer st = new StringTokenizer(ViewVariable.hash,"|");
-			tname.setText(st.nextToken());
-			tPass.setText(st.nextToken());
-		}
+		tname.setText(ViewVariable.userName);
+		tPass.setText(ViewVariable.hashPass);
         boxPassword.add(lPass);
         boxPassword.add(tPass);
         JButton save = new JButton("Connect");
@@ -58,7 +55,8 @@ public class ConnectWindow extends JDialog{
                         JOptionPane.showMessageDialog(ConnectWindow.this, "name or password wrong","Warning",JOptionPane.WARNING_MESSAGE);
                         return;
                     }
-					ViewVariable.hash = name+"|"+pass;
+                ViewVariable.userName=name;
+                ViewVariable.hashPass=pass;
 				ConnectWindow.this.connect = true;
 				dispose();
             }
