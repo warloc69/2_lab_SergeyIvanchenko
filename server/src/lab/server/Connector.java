@@ -16,6 +16,7 @@ public class Connector implements Runnable {
 	private Cleaner cl = null;
 	private Thread t2 = null;
     private boolean run = true;
+    private boolean stop = false;
     private String msg ;
 	public ConcurrentHashMap<Integer, UserConnector> userlist = new ConcurrentHashMap<Integer, UserConnector>();	
 	/**
@@ -48,7 +49,21 @@ public class Connector implements Runnable {
 					col.remove(con);
 				}							
             }
-		}		
+		}
+        public synchronized void clearAll(String msg) {
+            model = null;
+            Collection<UserConnector> col = userlist.values();
+            for (UserConnector uc : col) {
+                uc.stop(msg);
+            }           
+            while ( userlist.size() != 0) {
+               clear();
+            }
+            if (log.isInfoEnabled()) {
+                log.info("cleaner stop");
+            }
+            stop = true;
+        }
 	}
 	/**
 	* Connect new user.
@@ -90,28 +105,16 @@ public class Connector implements Runnable {
 			log.error(e1);
         } finally {
             try {
-                if (!s.isClosed()) {
-                    s.close();
+                if( s != null ) {
+                    if (!s.isClosed()) {
+                        s.close();
+                    }
                 }
             } catch (IOException e) {
                 log.warn(e.getMessage());
             }
-            model = null;
-            Collection<UserConnector> col = userlist.values();
-            for (UserConnector uc : col) {
-                uc.stop(msg);
-            }
-           
-            while ( userlist.size() != 0) {
-               for (UserConnector uc : col) {
-                   if(uc.isStoped()) {
-                        col.remove(uc);
-                    }
-                }
-            }
-            if (log.isInfoEnabled()) {
-                log.info("connector stop");
-            }
+            cl.clearAll(msg);
+            
         }
 	}
 	/**
@@ -121,6 +124,8 @@ public class Connector implements Runnable {
 	public void stop() {
         cl.run = false;
         run = false;
+        while(!stop) {
+        }
 	}
     public void setDisconMsg(String msg) {
         this.msg = msg;

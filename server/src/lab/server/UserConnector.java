@@ -24,41 +24,39 @@ public class UserConnector implements Runnable {
         t.start();        
     }
     public void run () {
-        BufferedReader in = null;
-        PrintWriter out = null;
+        DataInputStream in = null;
+        DataOutputStream out = null;
         InputStream is = null;
         try {
-            is  = soc.getInputStream();
-            in = new BufferedReader (
-                new InputStreamReader(is));
-            out = new PrintWriter (
-                soc.getOutputStream(),true);
-            ParsedInfo pInfo = XMLUtil.parser(in.readLine()); 
+             is  = soc.getInputStream();
+             in = new DataInputStream(is);
+             out = new DataOutputStream(soc.getOutputStream());
+            ParsedInfo pInfo = XMLUtil.parser(in.readUTF()); 
             uid = model.connectNewUser(pInfo.getUserName(),pInfo.getUserPass());
             String s = XMLUtil.packager("sendAll",uid,pInfo.getUserName(),pInfo.getUserPass(),null,null,model.getAllTasks(uid));
             if (log.isInfoEnabled()) {
                 log.info(s);
             }
-            out.println(s);  // send xml package all tasks of the client
+            out.writeUTF(s);  // send xml package all tasks of the client
             while (running) {
                 Thread.yield();
                 int i = is.available();
                 if (i == 0)  {                        
                     continue;
                 }
-                String line = in.readLine();
+                String line = in.readUTF();
                 if (log.isInfoEnabled()) {
                     log.info(line);
                 }
                 if (line != null) {
                     ParsedInfo pInfo1 = XMLUtil.parser(line);
                     if (uid != pInfo1.getUserID()) {
-                        out.println(XMLUtil.packager("error",uid,null,null,"User ID is wrong. You was disconnected.",null,null));
+                        out.writeUTF(XMLUtil.packager("error",uid,null,null,"User ID is wrong. You was disconnected.",null,null));
                         break;
                     }
                     if ("remove".equals(pInfo1.getCommand())) {
                             model.removeTask(pInfo1.getTask().getID(),pInfo1.getUserID()); 
-                            out.println(line); 
+                            out.writeUTF(line); 
                             continue;
                     }
                     if("disconnect".equals(pInfo1.getCommand())) {
@@ -66,26 +64,34 @@ public class UserConnector implements Runnable {
                     }
                     if ("add".equals(pInfo1.getCommand())) {
                         TaskInfo task = model.addTask(pInfo1.getTask(),pInfo1.getUserID());                                
-                        out.println(XMLUtil.packager("add",uid,pInfo.getUserName(),pInfo.getUserPass(),null,task,null));
+                        out.writeUTF(XMLUtil.packager("add",uid,pInfo.getUserName(),pInfo.getUserPass(),null,task,null));
                         continue;
                     }
                     if ("edit".equals(pInfo1.getCommand())) {
                         model.editTask(pInfo1.getTask().getID(),pInfo1.getTask(),pInfo1.getUserID());
-                        out.println(line);
+                        out.writeUTF(line);
                         continue;
                     }
                 }
             }
         } catch (UserAuthFailedException e) {
-            out.println(XMLUtil.packager("error",uid,null,null,"name or password is wrong",null,null));
+            try {
+            out.writeUTF(XMLUtil.packager("error",uid,null,null,"name or password is wrong",null,null));
+             } catch (IOException e1) {
+            log.error(e1);
+            } 
         } catch (DataAccessException e) {
-            out.println(XMLUtil.packager("error",uid,null,null,"Server error",null,null));
+            try{
+            out.writeUTF(XMLUtil.packager("error",uid,null,null,"Server error",null,null));
+             } catch (IOException e1) {
+            log.error(e1);
+            } 
         } catch (IOException e1) {
             log.error(e1);
         } finally {
             try {
                 if(!"".equals(exitMsg)) {
-                    out.println(XMLUtil.packager("disconnect",0,null,null,"Server stoped. " + exitMsg,null,null));
+                    out.writeUTF(XMLUtil.packager("disconnect",0,null,null,"Server stoped. " + exitMsg,null,null));
                 }
                 if ( in != null) {
                     in.close();

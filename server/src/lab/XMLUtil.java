@@ -7,82 +7,6 @@ import lab.*;
 /**
 *    <pre>
 *    Class convert the data to / from  the xml string.
-*    <b>Protocol.</b>
-*    The Server and a client sends some xml package.
-*    When the client connects to the server, client send package:
-*         &lt command &gt
-*             &lt com &gt getAll&lt /com &gt 
-*             &lt authInfo usrID="0" hash="t|s"/ &gt 
-*             &lt msg &gt msg&lt /msg &gt 
-*             &lt tasklist &gt 
-*               &lt size &gt 0&lt /size &gt 
-*             &lt /tasklist &gt 
-*         &lt /command &gt 
-*   The <b>hash</b> parameter contains some user name and password.
-*   The <b>usrID</b> contains user identifier. This parameter helps to get necessary info of the server.
-*   The server validates user name and password and sends the package with the list tasks or the  
-*   error authorization user package.
-*   The tasks list package example:
-*          &lt command &gt 
-*              &lt com &gt sendAll&lt /com &gt 
-*              &lt authInfo usrID="1" hash="t|s"/ &gt 
-*              &lt msg &gt msg&lt /msg &gt 
-*              &lt tasklist &gt  
-*                  &lt size &gt 2&lt /size &gt 
-*                  &lt task &gt 
-*                      &lt id &gt 1319121244236&lt /id &gt 
-*                      &lt name &gt ccc&lt /name &gt 
-*                      &lt info &gt  &lt /info &gt 
-*                      &lt exec &gt &lt /exec &gt 
-*                      &lt date &gt 1319127840000&lt /date &gt 
-*                  &lt /task &gt 
-*                  &lt task &gt 
-*                      &lt id &gt 1319121244237&lt /id &gt 
-*                      &lt name &gt zzz&lt /name &gt 
-*                      &lt info &gt  &lt /info &gt  
-*                      &lt exec &gt &lt /exec &gt  
-*                      &lt date &gt 1319127840000&lt /date &gt 
-*                  &lt /task &gt 
-*              &lt /tasklist &gt 
-*          &lt /command &gt 
-*    The <b>size</b>  shows how many tasks into the list. 
-*    The <b>com</b> contains the command, it’s can be “getAll”, “sendAll”,  “disconnect”, “add”, ”edit”, “remove”, 
-*    “error”.
-*    The <b>msg</b> contains the help information, for example when send command “disconnect” or “error” we can 
-*    show some reason.
-*    When the user disconnecting or when server is shutdown it’s one send  “disconnect” package.
-*    &lt command &gt 
-*    &lt com &gt disconnect&lt /com &gt 
-*    &lt authInfo usrID="1" hash="t|s"/ &gt 
-*    &lt msg &gt msg&lt /msg &gt 
-*    &lt tasklist &gt &lt size &gt 0&lt /size &gt &lt /tasklist &gt 
-*    &lt /command &gt
-*    When the user send “add” or “edit” package to the server :
-*    &lt command &gt 
-*          &lt com &gt add&lt /com &gt  
-*          &lt authInfo usrID="1" hash="t|s"/ &gt  
-*          &lt msg &gt msg&lt /msg &gt 
-*          &lt tasklist &gt 
-*              &lt size &gt 1&lt /size &gt 
-*                  &lt task &gt 
-*                  &lt id &gt 0&lt /id &gt 
-*                  &lt name &gt fdd&lt /name &gt 
-*                  &lt info &gt  &lt /info &gt 
-*                  &lt exec &gt  &lt /exec &gt 
-*                  &lt date &gt 1319192940000&lt /date &gt 
-*              &lt /task &gt 
-*          &lt /tasklist &gt 
-*    &lt /command &gt
-*    Server add or edit task and send this package to back, bat if command “add” before sender the server 
-*    generate task id and add to the package.
-*    The remove package contains only the task id in the <b>msg</b> and user id:
-*        &lt command &gt 
-*            &lt com &gt remove&lt /com &gt 
-*            &lt authInfo usrID="2" hash="tw|1"/ &gt 
-*            &lt msg &gt 1319371627338&lt /msg &gt 
-*            &lt tasklist &gt &lt size &gt 0&lt /size &gt &lt /tasklist &gt 
-*        &lt /command &gt 
-*    </pre>
 */
 public class XMLUtil {
     private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(XMLUtil.class);
@@ -194,7 +118,7 @@ public class XMLUtil {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
-            doc = builder.parse(new ByteArrayInputStream(xml.getBytes()));
+            doc = builder.parse(new ByteArrayInputStream(xml.getBytes("UTF-8")));
         } catch (Exception e) {
             log.error(e);
         }

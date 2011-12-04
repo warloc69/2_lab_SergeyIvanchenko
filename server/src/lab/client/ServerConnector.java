@@ -16,9 +16,9 @@ import java.awt.*;
 public class ServerConnector implements ManagerControllerInterface{
     public static final long serialVersionUID = 124322332l;
     private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(ServerConnector.class);
-    private PrintWriter out = null;
+    private DataOutputStream out = null;
     private ManagerView mv = null;
-    private BufferedReader in = null;
+    private DataInputStream in = null;
     private TaskInfo task = null;    
     private Socket s = null;
     private Commander com = null;
@@ -50,11 +50,9 @@ public class ServerConnector implements ManagerControllerInterface{
                 Socket s = new Socket(ViewVariable.ip,ViewVariable.port);
                 ServerConnector.this.s = s;
                 is = s.getInputStream();
-                in = new BufferedReader (
-                    new InputStreamReader(is));
-                out = new PrintWriter (
-                    s.getOutputStream(),true);
-                out.println(XMLUtil.packager("getAll",0,ViewVariable.userName,ViewVariable.hashPass,null, null, null));
+                in = new DataInputStream(is);
+                out = new DataOutputStream(s.getOutputStream());
+                out.writeUTF(XMLUtil.packager("getAll",0,ViewVariable.userName,ViewVariable.hashPass,null, null, null));
             } catch (IOException e) {
                try {
                    if (in != null) {
@@ -90,7 +88,9 @@ public class ServerConnector implements ManagerControllerInterface{
                     }
                     synchronized (sendCommands) {
                         while(!sendCommands.empty()) {
-                            out.println(sendCommands.pop());
+                            try {
+                                out.writeUTF(sendCommands.pop());
+                            } catch (IOException e1) {} //todo
                         }
                         try {
                             sendCommands.wait();
@@ -130,7 +130,7 @@ public class ServerConnector implements ManagerControllerInterface{
                         continue;
                     }
                     while( is.available() != 0) {
-                        String s = in.readLine();
+                        String s = in.readUTF();
                         if (s == null) {
                             continue;
                         }
@@ -218,7 +218,7 @@ public class ServerConnector implements ManagerControllerInterface{
         private void stop() {
             try {
                 if (out != null) {
-                    out.println(XMLUtil.packager("disconnect",ViewVariable.uid,ViewVariable.userName,ViewVariable.hashPass,null, null, null));
+                    out.writeUTF(XMLUtil.packager("disconnect",ViewVariable.uid,ViewVariable.userName,ViewVariable.hashPass,null, null, null));
                     in.close();
                     sender.stop();
                     while(!sender.isStoped()) {
