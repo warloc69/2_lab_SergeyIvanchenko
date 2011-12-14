@@ -52,30 +52,40 @@ public class ManagerView extends JFrame {
         *     and chooses the task for execution. 
         */
         public void run() {
-            while (run) {
-                ArrayList<TaskInfo> info = tableModel.getTableInfo();    
-                synchronized (info) {            
-                    try {
-                        for (TaskInfo ts : info) {
-                            if (ts.isRemoved()) {
-                                info.remove(ts);
-                                continue;
-                            }
-                            if (ts.getDate().getTime() <= (new Date().getTime()+ViewVariable.offTime*1000*60) ) {
-                                TaskWindow tw = new TaskWindow(ManagerView.this,ts,controller);
-                                while (tw.isPostfone()) {
-                                    Thread.yield();
+            try {
+                while (run) {
+                    ArrayList<TaskInfo> info = tableModel.getTableInfo();    
+                    synchronized (info) {            
+                        try {
+                            for (TaskInfo ts : info) {
+                                if (ts.isRemoved()) {
+                                    info.remove(ts);
+                                    continue;
                                 }
-                                info.remove(ts);
-                            } else {
-                                break;
+                                if (ts.getDate().getTime() <= (new Date().getTime()+ViewVariable.offTime*1000*60) ) {
+                                    TaskWindow tw = new TaskWindow(ManagerView.this,ts,controller);
+                                    while (tw.isPostfone()) {
+                                        Thread.sleep(50);
+                                        if (thread.isInterrupted()) {
+                                            throw new InterruptedException();
+                                        }
+                                    }
+                                    info.remove(ts);
+                                } else {
+                                    break;
+                                }
                             }
+                        } catch (ConcurrentModificationException e) {
+                            info = tableModel.getTableInfo();
                         }
-                    } catch (ConcurrentModificationException e) {
-                        info = tableModel.getTableInfo();
+                    }
+                    Thread.sleep(50);
+                    if (thread.isInterrupted()) {
+                        throw new InterruptedException();
                     }
                 }
-                Thread.yield();
+            } catch (InterruptedException e) {
+                log.info("Notifier stoped");
             }
         }
         public void stop () {
@@ -325,11 +335,21 @@ public class ManagerView extends JFrame {
         try{
             final JDialog optionD = new JDialog(this,true);
             optionD.setTitle("Option");
-            optionD.setSize(255, 125);
+            optionD.setSize(255, 155);
             Box b = Box.createVerticalBox();
             Box bIP = Box.createHorizontalBox();
             Box b1 = Box.createHorizontalBox();
             Box b2 = Box.createHorizontalBox();
+            Box b3 = Box.createHorizontalBox();
+            JLabel lTimeOut = new JLabel("Ping time out:");
+            final JTextField tTimeOut = new JTextField();
+            tTimeOut.setMaximumSize(new Dimension(50,30));
+            tTimeOut.setMinimumSize(new Dimension(50,30));
+            tTimeOut.setText(ViewVariable.timeOut.toString());
+            JLabel sec = new JLabel("s");
+            b3.add(lTimeOut);
+            b3.add(tTimeOut);
+            b3.add(sec);
             optionD.add(b);
             final JCheckBox check = new JCheckBox("Autorun program");
             
@@ -392,6 +412,7 @@ public class ManagerView extends JFrame {
                             ViewVariable.port = Integer.parseInt((String)port.getValue());
                         try {
                             ViewVariable.offTime = Integer.parseInt(min.getText());
+                            ViewVariable.timeOut = Integer.parseInt(tTimeOut.getText());
                         } catch (NumberFormatException e3) {
                             return;
                         }
@@ -407,6 +428,7 @@ public class ManagerView extends JFrame {
                     }
                 }
             );
+            
             b1.add(l);
             b1.add(Box.createGlue());
             b1.add(min);
@@ -414,6 +436,7 @@ public class ManagerView extends JFrame {
             b1.add(list);
             b1.add(h);
             b.add(b1);
+            b.add(b3);
             b.add(check);
             b.add(b2);        
             b2.add(bOk);
@@ -483,6 +506,7 @@ public class ManagerView extends JFrame {
             ViewVariable.port = in.readInt();
             ViewVariable.userName = in.readUTF();
             ViewVariable.hashPass = in.readUTF();
+            ViewVariable.timeOut = in.readInt();
         } catch (IOException e) {
             log.error("IO Exception, read option");
         }
@@ -512,6 +536,8 @@ public class ManagerView extends JFrame {
             out.writeUTF(ViewVariable.userName);
             out.flush();
             out.writeUTF(ViewVariable.hashPass);
+            out.flush();
+            out.writeInt(ViewVariable.timeOut);
             out.flush();
             out.close();
         } catch (IOException e1){

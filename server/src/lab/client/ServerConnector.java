@@ -29,6 +29,7 @@ public class ServerConnector implements ManagerControllerInterface{
     private class Commander implements Runnable{
         private Thread thread = null;
         private Sender sender = null;
+        private Pinger pinger = null;
         private Stack<String>  sendCommands  = new Stack<String>();     //queue send xml packages
         private Stack<String> incomingCommands = new Stack<String>();    // queue incoming xml packages
         public boolean stop = true;
@@ -39,6 +40,7 @@ public class ServerConnector implements ManagerControllerInterface{
             thread = new Thread(this);
             thread.setDaemon(true);
             thread.start();
+            pinger = new Pinger();
         }
 		/**
 		* Create new connection, open stream.
@@ -69,7 +71,34 @@ public class ServerConnector implements ManagerControllerInterface{
                 throw new lab.exception.ConnectException(e);
             }
         }
-		/**
+        /**
+        * Class create ping's package.
+        */
+		private class Pinger implements Runnable {
+            private boolean run = true;
+            public Pinger () {
+                Thread t1 = new Thread(this);
+                t1.setDaemon(true);
+                t1.start();
+            }
+            public void run () {
+                while(run) {
+                    try {
+                        synchronized (sendCommands) {                       
+                            sendCommands.push(XMLUtil.ping(ViewVariable.timeOut,ViewVariable.uid));
+                            sendCommands.notify();
+                        }
+                        Thread.sleep(ViewVariable.timeOut*1000/3);
+                    } catch (InterruptedException e) {
+                        log.info("Pinger stoped " + e);
+                    }
+                }
+            }
+            public void stop () {
+                run = false;
+            }
+        }
+        /**
 		* class makes new thread that send packages of the server.
 		*/
         private class Sender implements Runnable {
@@ -90,10 +119,16 @@ public class ServerConnector implements ManagerControllerInterface{
                         while(!sendCommands.empty()) {
                             try {
                                 out.writeUTF(sendCommands.pop());
-                            } catch (IOException e1) {} //todo
+                            } catch (IOException e1) {
+                                log.error("sender ioerror"+e1);
+                                run = false;
+                                break;
+                            }
                         }
                         try {
-                            sendCommands.wait();
+                            if (run) {
+                                sendCommands.wait();
+                            }
                         } catch (InterruptedException e) {
                             log.error(e);
                         }
@@ -117,15 +152,18 @@ public class ServerConnector implements ManagerControllerInterface{
             public boolean isStoped() {
                 return stop;
             }
-        }
-                
+        }   
         /**
         *    Create new thread, look through incoming packages. 
         */
         public void run() {
-            while (stop) {    
-                Thread.yield();				
+            Long pingTime = System.currentTimeMillis();
+            while (stop) { 	
                 try {
+                    Thread.sleep(50);
+                    if (thread.isInterrupted()) {
+                        throw new InterruptedException();
+                    }
                     if( in == null) {
                         continue;
                     }
@@ -136,30 +174,48 @@ public class ServerConnector implements ManagerControllerInterface{
                         }
                         incomingCommands.push(s);
                     }
+                    if (System.currentTimeMillis()-pingTime > ViewVariable.timeOut*1000) {
+                        log.info("ping time out");
+                        mv.notifyDisconnect("ping time out","Ping");
+                        stop = false;
+                        break;
+                    }
                     while(!incomingCommands.empty()) {                    
                         ParsedInfo pars = XMLUtil.parser(incomingCommands.pop());
                         String com = pars.getCommand();
-                        if ("sendAll".equals(com)) {                    
+                        if ("sendAll".equals(com)) {
+                            pingTime = System.currentTimeMillis();
                             mv.notifyGetAll(pars);
                         }
                         if ("disconnect".equals(com)) {
-							stop();
                             mv.notifyDisconnect(pars.getMessage(),pars.getCommand());
+							stop = false;
+                            break;
+                        }
+                        if ("ping".equals(com)) {
+                            pingTime = System.currentTimeMillis();
                         }
                         if ("add".equals(com)) {
+                            pingTime = System.currentTimeMillis();
                             mv.notifyAdd(pars.getTask());
                         }
                         if ("edit".equals(com)) {
+                            pingTime = System.currentTimeMillis();
                             mv.notifyEdit(pars.getTask());
                         }
                         if ("remove".equals(com)) {
+                            pingTime = System.currentTimeMillis();
                             mv.notifyRemove(pars.getTask().getID());
                         }
                         if ("error".equals(com)) {
-                            stop();                        
                             mv.notifyDisconnect(pars.getMessage(),pars.getCommand());
+                            stop = false;
+                            break;
                         }
-                    }    
+                    } 
+                } catch (InterruptedException e) {
+                    log.info("comander is stop");
+                    stop = false;
                 } catch (IOException e) {
                     stop = false;
                     log.error(e);
@@ -216,18 +272,20 @@ public class ServerConnector implements ManagerControllerInterface{
 		* Safe stop Commander thread.
 		*/
         private void stop() {
+            pinger.stop();
             try {
                 if (out != null) {
-                    out.writeUTF(XMLUtil.packager("disconnect",ViewVariable.uid,ViewVariable.userName,ViewVariable.hashPass,null, null, null));
-                    in.close();
+                    out.writeUTF(XMLUtil.packager("disconnect",ViewVariable.uid,ViewVariable.userName,ViewVariable.hashPass,null, null, null));                    
                     sender.stop();
                     while(!sender.isStoped()) {
                     }
+                    in.close();
                     out.close();
                     s.close();
                 }
             } catch (IOException e) {
                 log.error(e);
+                sender.stop();
             }
 			if (com != null) {
 				com.stoped = true; 

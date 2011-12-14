@@ -4,6 +4,7 @@ import java.io.*;
 import lab.server.model.*;
 import lab.exception.*;
 import lab.*;
+import java.util.*;
 /**
 * Connect new user to the server
 */
@@ -24,6 +25,7 @@ public class UserConnector implements Runnable {
         t.start();        
     }
     public void run () {
+        int pingTimeout = 10000;
         DataInputStream in = null;
         DataOutputStream out = null;
         InputStream is = null;
@@ -38,60 +40,84 @@ public class UserConnector implements Runnable {
                 log.info(s);
             }
             out.writeUTF(s);  // send xml package all tasks of the client
+            Long pingTime = System.currentTimeMillis();
             while (running) {
-                Thread.yield();
+                Thread.sleep(50);
+                if (t.isInterrupted()) {
+                    throw new InterruptedException();
+                }
                 int i = is.available();
-                if (i == 0)  {                        
-                    continue;
+                if (i == 0)  {                    
+                    if (System.currentTimeMillis()-pingTime > pingTimeout) {
+                        log.info("ping time out");
+                        exitMsg = "timeOut";
+                        break;
+                    } else {
+                        continue;
+                    }
                 }
                 String line = in.readUTF();
-                if (log.isInfoEnabled()) {
-                    log.info(line);
-                }
                 if (line != null) {
                     ParsedInfo pInfo1 = XMLUtil.parser(line);
-                    if (uid != pInfo1.getUserID()) {
-                        out.writeUTF(XMLUtil.packager("error",uid,null,null,"User ID is wrong. You was disconnected.",null,null));
-                        break;
+                    if (!"ping".equals(pInfo1.getCommand())) {
+                        if (uid != pInfo1.getUserID()) {
+                            out.writeUTF(XMLUtil.packager("error",uid,null,null,"User ID is wrong. You was disconnected.",null,null));
+                            break;
+                        }
+                    } else {
+                        pingTimeout = pInfo1.getPingTimeOut()*1000;
+                        pingTime = System.currentTimeMillis();
+                        out.writeUTF(line);
+                        continue;
                     }
                     if ("remove".equals(pInfo1.getCommand())) {
-                            model.removeTask(pInfo1.getTask().getID(),pInfo1.getUserID()); 
-                            out.writeUTF(line); 
-                            continue;
+                        pingTime = System.currentTimeMillis();
+                        model.removeTask(pInfo1.getTask().getID(),pInfo1.getUserID()); 
+                        out.writeUTF(line); 
+                        continue;
                     }
                     if("disconnect".equals(pInfo1.getCommand())) {
                         break;
                     }
                     if ("add".equals(pInfo1.getCommand())) {
+                        pingTime = System.currentTimeMillis();
                         TaskInfo task = model.addTask(pInfo1.getTask(),pInfo1.getUserID());                                
                         out.writeUTF(XMLUtil.packager("add",uid,pInfo.getUserName(),pInfo.getUserPass(),null,task,null));
                         continue;
                     }
                     if ("edit".equals(pInfo1.getCommand())) {
+                        pingTime = System.currentTimeMillis();
                         model.editTask(pInfo1.getTask().getID(),pInfo1.getTask(),pInfo1.getUserID());
                         out.writeUTF(line);
                         continue;
                     }
                 }
             }
+        } catch (InterruptedException e) {
+            log.info("user wrapper is stoped");
         } catch (UserAuthFailedException e) {
             try {
-            out.writeUTF(XMLUtil.packager("error",uid,null,null,"name or password is wrong",null,null));
-             } catch (IOException e1) {
-            log.error(e1);
+                out.writeUTF(XMLUtil.packager("error",uid,null,null,"name or password is wrong ",null,null));
+                exitMsg = "AuthFailed";
+            } catch (IOException e1) {
+                log.error(e1);
             } 
         } catch (DataAccessException e) {
             try{
-            out.writeUTF(XMLUtil.packager("error",uid,null,null,"Server error",null,null));
-             } catch (IOException e1) {
-            log.error(e1);
+                out.writeUTF(XMLUtil.packager("error",uid,null,null,"Server error",null,null));
+            } catch (IOException e1) {
+                log.error(e1);
             } 
         } catch (IOException e1) {
             log.error(e1);
         } finally {
             try {
-                if(!"".equals(exitMsg)) {
-                    out.writeUTF(XMLUtil.packager("disconnect",0,null,null,"Server stoped. " + exitMsg,null,null));
+                if (!"AuthFailed".equals(exitMsg)) {
+                    if(!"timeOut".equals(exitMsg)) {
+                        if(!"".equals(exitMsg)) {
+                            out.writeUTF(XMLUtil.packager("disconnect",0,null,null,"Server stoped. " + exitMsg,null,null));
+                        }
+                    }
                 }
                 if ( in != null) {
                     in.close();

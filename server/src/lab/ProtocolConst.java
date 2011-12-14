@@ -11,4 +11,5 @@ public class ProtocolConst {
 	public static final String runProgram = "exec";
 	public static final String elementDate = "date";
 	public static final String listSize = "size";
+    public static final String pingTime = "timeOut";
 }

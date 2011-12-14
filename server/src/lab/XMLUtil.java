@@ -11,11 +11,35 @@ import lab.*;
 public class XMLUtil {
     private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(XMLUtil.class);
     /**
+    *   Create xml-ping's packages.
+    *   @param pingTime it's ping-out time.
+    *   @param usrID it's user identifier.
+    */
+    public static String ping(Integer pingTime,long usrID) {
+        StringBuffer sb = new StringBuffer();
+        sb.append("<" +ProtocolConst.rootTeg+ ">");
+        sb.append("<" +ProtocolConst.com+ ">");
+        sb.append("ping");
+        sb.append("</" +ProtocolConst.com+ ">");
+        sb.append("<" +ProtocolConst.pingTime + ">");
+        sb.append(pingTime);
+        sb.append("</" +ProtocolConst.pingTime + ">");
+        sb.append("<authInfo usrID=\"" + usrID);
+        sb.append("\" userName=\" ");
+        sb.append("\" hashPass=\" \"/>");
+        sb.append("<" +ProtocolConst.msg+ "/>");
+        sb.append("<" +ProtocolConst.list+ "/>");
+        sb.append("</" +ProtocolConst.rootTeg+ ">");
+        String xml = sb.toString();
+        return xml;
+    }
+    /**
     * Create xml packager.
     * @param com it's command id. Can be : “getAll”, “sendAll”,  “disconnect”, “add”, ”edit”, “remove”, 
     * “error”.
     * @param usrID it's user identifier, generate on the server.
-    * @param hash it's username and password string. 
+    * @param userName it's username.
+    * @param hashPass password string. 
     * @param msg can keeps some information.
     * @param ts1 it's task that keep in the packege, can be null.
     * @param tasks if we transfers some tasks we writes they into this Hashtable, can be null;
@@ -114,7 +138,6 @@ public class XMLUtil {
     public static ParsedInfo parser (String xml) {
         ParsedInfo pInfo = new ParsedInfo();
         Document doc = null;
-        log.info("parser : " +xml);
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
@@ -139,6 +162,10 @@ public class XMLUtil {
                             String text1 = textNode1.getData().trim();
                             pInfo.setMessage(text1);
                         }
+                    }
+                    if (ch1.getTagName().equals(ProtocolConst.pingTime)) {
+                        Text textNode1 = (Text)ch1.getFirstChild();
+                        pInfo.setPingTimeOut(Integer.parseInt(textNode1.getData().trim()));
                     }
                     if (ch1.getTagName().equals("authInfo")) {
                         pInfo.setUserID(Integer.parseInt(ch1.getAttribute("usrID")));
@@ -207,6 +234,9 @@ public class XMLUtil {
                     }
                 }
             }
+        if (!"ping".equals(pInfo.getCommand())) {
+            log.info("parser : " +xml);
+        }
         return pInfo;
     }
 }

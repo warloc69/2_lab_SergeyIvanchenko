@@ -16,4 +16,5 @@ public class ViewVariable {
     public static String msg = "msg";
     public static String ip = "127.0.0.1";
     public static Integer port = 8189;
+    public static Integer timeOut = 5;
 }

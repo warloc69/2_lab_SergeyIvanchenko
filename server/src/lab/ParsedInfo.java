@@ -6,6 +6,7 @@ import java.util.*;
 public class ParsedInfo {
     private String userName = null;
     private String userPass = null;
+    private int pingTimeOut = 0;
 	private int size = 0;
     private int userID = 0;
     private String command = null;
@@ -20,6 +21,9 @@ public class ParsedInfo {
 	*/
     public void setUserPass(String pass) {
         userPass = pass;
+    }
+    public void setPingTimeOut(int time) {
+        pingTimeOut = time;
     }
 	/**
 	* Set user identifier.
@@ -63,6 +67,9 @@ public class ParsedInfo {
 	*/
     public String getUserPass() {
         return userPass;
+    }
+    public int getPingTimeOut() {
+        return pingTimeOut;
     }
 	/**
 	* Get user identifier.

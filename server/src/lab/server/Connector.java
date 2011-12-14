@@ -32,8 +32,16 @@ public class Connector implements Runnable {
 		}
 		public void run() {
 			while(run) {
-				Thread.yield();
-				clear();
+				try {
+                    Thread.sleep(50);
+                    if (t1.isInterrupted()) {
+                        throw new InterruptedException();
+                    }
+                    clear();
+                } catch (InterruptedException e) {
+                    clearAll("server stoped");
+                    break;
+                }
 			}			
 		}
 		/**
