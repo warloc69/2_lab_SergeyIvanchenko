@@ -71,7 +71,6 @@ public class UserConnector implements Runnable {
                         continue;
                     }
                     if ("remove".equals(pInfo1.getCommand())) {
-                        pingTime = System.currentTimeMillis();
                         model.removeTask(pInfo1.getTask().getID(),pInfo1.getUserID()); 
                         out.writeUTF(line); 
                         continue;
@@ -80,13 +79,11 @@ public class UserConnector implements Runnable {
                         break;
                     }
                     if ("add".equals(pInfo1.getCommand())) {
-                        pingTime = System.currentTimeMillis();
                         TaskInfo task = model.addTask(pInfo1.getTask(),pInfo1.getUserID());                                
                         out.writeUTF(XMLUtil.packager("add",uid,pInfo.getUserName(),pInfo.getUserPass(),null,task,null));
                         continue;
                     }
                     if ("edit".equals(pInfo1.getCommand())) {
-                        pingTime = System.currentTimeMillis();
                         model.editTask(pInfo1.getTask().getID(),pInfo1.getTask(),pInfo1.getUserID());
                         out.writeUTF(line);
                         continue;

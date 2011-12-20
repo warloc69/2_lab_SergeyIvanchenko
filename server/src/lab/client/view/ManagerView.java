@@ -96,6 +96,11 @@ public class ManagerView extends JFrame {
     *    Constructor creates ManagerView's object.
     */
     public ManagerView() {
+        try {
+            UIManager.setLookAndFeel("com.sun.java.swing.plaf.nimbus.NimbusLookAndFeel");
+        } catch (Exception e) {
+            log.info("LookAndFeel don't use"); 
+        }
         setJMenuBar(menuBar);
         menuCom.setEnabled(false);
         menuBar.add(menuCom);
@@ -335,7 +340,7 @@ public class ManagerView extends JFrame {
         try{
             final JDialog optionD = new JDialog(this,true);
             optionD.setTitle("Option");
-            optionD.setSize(255, 155);
+            optionD.setSize(255, 175);
             Box b = Box.createVerticalBox();
             Box bIP = Box.createHorizontalBox();
             Box b1 = Box.createHorizontalBox();

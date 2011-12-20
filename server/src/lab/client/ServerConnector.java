@@ -184,7 +184,6 @@ public class ServerConnector implements ManagerControllerInterface{
                         ParsedInfo pars = XMLUtil.parser(incomingCommands.pop());
                         String com = pars.getCommand();
                         if ("sendAll".equals(com)) {
-                            pingTime = System.currentTimeMillis();
                             mv.notifyGetAll(pars);
                         }
                         if ("disconnect".equals(com)) {
@@ -196,15 +195,12 @@ public class ServerConnector implements ManagerControllerInterface{
                             pingTime = System.currentTimeMillis();
                         }
                         if ("add".equals(com)) {
-                            pingTime = System.currentTimeMillis();
                             mv.notifyAdd(pars.getTask());
                         }
                         if ("edit".equals(com)) {
-                            pingTime = System.currentTimeMillis();
                             mv.notifyEdit(pars.getTask());
                         }
                         if ("remove".equals(com)) {
-                            pingTime = System.currentTimeMillis();
                             mv.notifyRemove(pars.getTask().getID());
                         }
                         if ("error".equals(com)) {
