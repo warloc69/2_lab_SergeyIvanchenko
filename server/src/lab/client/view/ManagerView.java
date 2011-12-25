@@ -107,6 +107,7 @@ public class ManagerView extends JFrame {
         menuBar.add(menuOpt);
         menuBar.add(menuAbout);
         pane = getContentPane();
+        menuConection.setFloatable(false);
         pane.add(menuConection);
         setTitle("Task Manager");
         loadOption();
@@ -151,6 +152,7 @@ public class ManagerView extends JFrame {
             }
         );
             JScrollPane scr = new JScrollPane(table);
+            table.setBackground(new Color(117, 144, 174));
             Box b = Box.createVerticalBox();
             menuConection.setMaximumSize(new Dimension(130,30));
             bConnect = new JButton( new ImageIcon("img\\connect.png"));
@@ -340,33 +342,37 @@ public class ManagerView extends JFrame {
         try{
             final JDialog optionD = new JDialog(this,true);
             optionD.setTitle("Option");
-            optionD.setSize(255, 175);
+            optionD.setSize(295, 160);
             Box b = Box.createVerticalBox();
             Box bIP = Box.createHorizontalBox();
             Box b1 = Box.createHorizontalBox();
             Box b2 = Box.createHorizontalBox();
             Box b3 = Box.createHorizontalBox();
-            JLabel lTimeOut = new JLabel("Ping time out:");
+            JLabel lTimeOut = new JLabel("  Ping time out:");
             final JTextField tTimeOut = new JTextField();
-            tTimeOut.setMaximumSize(new Dimension(50,30));
-            tTimeOut.setMinimumSize(new Dimension(50,30));
+            tTimeOut.setMaximumSize(new Dimension(55,30));
+            tTimeOut.setPreferredSize(new Dimension(55,30));
+            tTimeOut.setMinimumSize(new Dimension(55,30));
             tTimeOut.setText(ViewVariable.timeOut.toString());
-            JLabel sec = new JLabel("s");
-            b3.add(lTimeOut);
-            b3.add(tTimeOut);
+            JLabel sec = new JLabel(" s  ");
+            b3.add(lTimeOut);            
+            b3.add(tTimeOut);           
             b3.add(sec);
+            b3.add(Box.createGlue());
             optionD.add(b);
-            final JCheckBox check = new JCheckBox("Autorun program");
+            final JCheckBox check = new JCheckBox("   Autorun program     ");
             
                 MaskFormatter form = new MaskFormatter("###.###.###.###");
                 MaskFormatter formP = new MaskFormatter("####");
-                JLabel lIP = new JLabel("IP");
-                JLabel lPort = new JLabel("Port:");
+                JLabel lIP = new JLabel("  IP  ");
+                JLabel lPort = new JLabel("  Port: ");
                 form.setPlaceholderCharacter('0');
                 final JFormattedTextField ip = new JFormattedTextField(form);
                 final JFormattedTextField port = new JFormattedTextField(formP);
-                ip.setMaximumSize(new Dimension(100,30));
-                ip.setMinimumSize(new Dimension(100,30));
+                ip.setMaximumSize(new Dimension(105,30));
+                ip.setMinimumSize(new Dimension(105,30));
+                port.setMaximumSize(new Dimension(100,30));
+                port.setMinimumSize(new Dimension(100,30));
                 ip.setValue(ViewVariable.ip);
                 port.setValue(ViewVariable.port.toString());
                 bIP.add(lIP);
@@ -377,7 +383,7 @@ public class ManagerView extends JFrame {
             
             check.setSelected(ViewVariable.autoRun);
             check.setToolTipText("Set, if you want to run executable program automaticly in the task.");        
-            JLabel l = new JLabel("Put off time:");
+            JLabel l = new JLabel("  Put off time:");
             JLabel m = new JLabel("Minits");
             final JTextField min = new JTextField();
             min.setText(ViewVariable.offTime+"");
@@ -391,7 +397,7 @@ public class ManagerView extends JFrame {
             list.addItem("12");
             list.addItem("15");
             list.addItem("24");
-            JLabel h = new JLabel("H");
+            JLabel h = new JLabel(" H                   ");
             list.addActionListener(
                 new ActionListener() {
                     public void actionPerformed(ActionEvent e) { 
@@ -401,7 +407,7 @@ public class ManagerView extends JFrame {
                     }
                 }
             );
-            JButton bOk = new JButton("Ok");
+            JButton bOk = new JButton("   Ok   ");
             bOk.addActionListener(
                 new ActionListener() {
                     public void actionPerformed(ActionEvent e) {                
@@ -435,17 +441,16 @@ public class ManagerView extends JFrame {
             );
             
             b1.add(l);
-            b1.add(Box.createGlue());
             b1.add(min);
             b1.add(m);
             b1.add(list);
             b1.add(h);
             b.add(b1);
             b.add(b3);
+            check.setAlignmentX(JComponent.LEFT_ALIGNMENT);
             b.add(check);
             b.add(b2);        
             b2.add(bOk);
-            b2.add(Box.createGlue());
             b2.add(bCancel);
             optionD.setResizable(false);        
             optionD.setVisible(true);

@@ -22,7 +22,7 @@ public class ConnectWindow extends JDialog{
     * Show conection dialog and connect to the server.
     */
     public void connectionWindow() {
-        int W = 800;
+        int W = 500;
         int H = 300;
         Box boxName = Box.createHorizontalBox();
         Box boxPassword = Box.createHorizontalBox();
@@ -30,7 +30,7 @@ public class ConnectWindow extends JDialog{
         Box allBoxes = Box.createVerticalBox();
         setSize(W/2,H/2);
         setBounds(W/4,H/4,W/2,H/2);
-        final JLabel lname = new JLabel("Name:");
+        final JLabel lname = new JLabel("Name:       ");
         boxName.add(lname);
         //----- JTextField
         final JTextField tname = new JTextField();

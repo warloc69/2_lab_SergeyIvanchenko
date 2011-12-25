@@ -81,7 +81,7 @@ public class TaskWindow extends JDialog {
         Box boxButton = Box.createHorizontalBox();
         Box allBoxes = Box.createVerticalBox();
         setSize(W/2,H/2);
-        setBounds(W/4,H/4,W/2,H/2);
+        setBounds(W/4,H/4,W/2+50,H/2);
         addWindowListener(
             new WindowAdapter() {
                 public void windowClosing(WindowEvent we) {
@@ -127,7 +127,7 @@ public class TaskWindow extends JDialog {
         list.addItem("12");
         list.addItem("15");
         list.addItem("24");
-        list.setMaximumSize(new Dimension(45,30));
+        list.setMaximumSize(new Dimension(55,30));
         final JLabel h = new JLabel("H");
         list.addActionListener(
             new ActionListener() {
@@ -162,7 +162,6 @@ public class TaskWindow extends JDialog {
             }
         });
         boxFile.add(Box.createRigidArea(new Dimension(10,30)));
-        boxFile.add(bexefile);
         boxFile.add(lFile);
         //----- Button Save
         JButton save = null;
@@ -191,7 +190,7 @@ public class TaskWindow extends JDialog {
                 break;
             }
             case ViewVariable.comView: {
-                save = new JButton("Ok");
+                save = new JButton("    Ok    ");
                 save.setToolTipText("Close dialog");
                 setTitle("View task");
                 if (task.getDate().getTime() <= (new Date().getTime())) {
@@ -269,7 +268,8 @@ public class TaskWindow extends JDialog {
                     dispose();
                 }            
             });
-            boxButton.add(cancel);   
+            boxButton.add(cancel); 
+            boxButton.add(bexefile);
         }
         
         setResizable(false);
@@ -277,7 +277,6 @@ public class TaskWindow extends JDialog {
             tname.setEnabled(false);
             tinfo.setEnabled(false);
             dateChooser.setEnabled(false);
-            boxFile.remove(bexefile);
             boxName.remove(list);
             boxName.remove(h);
         }
@@ -340,7 +339,7 @@ public class TaskWindow extends JDialog {
             final JLabel lFile = new JLabel("Run program : " + ts.getExec().getName());
             boxFile.add(lFile);
         }
-        JButton ok = new JButton("Ok");  
+        JButton ok = new JButton("   Ok   ");  
         ok.addActionListener(
         new ActionListener() {
             public void actionPerformed(ActionEvent event) {

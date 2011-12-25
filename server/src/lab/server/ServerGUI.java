@@ -29,10 +29,16 @@ public class ServerGUI extends AppenderSkeleton {
 		*/
         public void showGUI () {
 			try {
+                try {
+                    UIManager.setLookAndFeel("com.sun.java.swing.plaf.nimbus.NimbusLookAndFeel");
+                } catch (Exception e) {
+                    log.info("LookAndFeel don't use"); 
+                }
 				Container cGui = getContentPane();
 				Box allBoxes = Box.createVerticalBox();
 				cGui.add(allBoxes);
 				tname = new JTextArea();
+                tname.setBackground(new Color(117, 144, 174));
 				JScrollPane scr = new JScrollPane(tname);
 				allBoxes.add(scr);
 				add(allBoxes);
