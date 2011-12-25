@@ -58,6 +58,9 @@ public class Connector implements Runnable {
 				}							
             }
 		}
+        /**
+        * Remove all user when server stoping.
+        */
         public synchronized void clearAll(String msg) {
             model = null;
             Collection<UserConnector> col = userlist.values();
@@ -125,9 +128,8 @@ public class Connector implements Runnable {
             
         }
 	}
-	/**
-	* Stop all user and stop cleaner after.
-	* @param msg message thet will be send all user befor disconnect.
+    /**
+	* Stop all user.
 	*/
 	public void stop() {
         cl.run = false;
@@ -135,6 +137,10 @@ public class Connector implements Runnable {
         while(!stop) {
         }
 	}
+    /**
+	* Set disconnected message.
+	* @param msg message thet will be send all user befor disconnect.
+	*/
     public void setDisconMsg(String msg) {
         this.msg = msg;
     }

@@ -302,7 +302,6 @@ public class ServerConnector implements ManagerControllerInterface{
     }
 	/**
 	* Start thread that look through send or get xml packager.
-	* @param hash user name and password hash.
 	* @throws lab.exception.ConnectException if connetion is not complete.
 	*/
     public ManagerControllerInterface startCommander() throws lab.exception.ConnectException{
